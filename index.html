@@ -395,7 +395,9 @@ const TYPES={
   suv:{len:5,color:'#cfc6b0',acc:2.4,name:'SUV',w:.45},
   van:{len:5.8,color:'#d9dee0',acc:2.0,name:'Van',w:.47},
   amb:{len:6.6,color:'#f3f5f6',acc:3.0,name:'Ambulance',w:.5},
-  fire:{len:9.5,color:'#c9362e',acc:2.2,name:'Fire truck',w:.54}
+  fire:{len:9.5,color:'#c9362e',acc:2.2,name:'Fire truck',w:.54},
+  police:{len:4.9,color:'#eef1f3',acc:3.4,name:'Police car',w:.43},
+  bike:{len:1.9,color:'#3d6fb5',acc:1.2,name:'Cyclist',w:.2}
 };
 const EMV={dispatch:true,tag:true,siren:true,hw:1.2};
 const SC=[
@@ -415,7 +417,7 @@ const SC=[
   events:[{t:1,run:S=>{S.link=false;log('Platform link lost — edge controller continues on V2X + siren','warn',true)}}],
   spawns:[{t:0,type:'car',lane:1,kmh:50},{t:2,type:'car',lane:0,kmh:60,tag:true,forged:true,hw:1.5,label:'Car with cloned tag',color:'#77899a'},{t:6,type:'suv',lane:1,kmh:50},{t:13.5,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'}]},
  {id:'jam',name:'Actuator jam',dur:26,len:220,sites:[140],inc:{id:'INC-26-10487',type:'Breathing difficulty',prio:'P1'},
-  events:[{t:5,run:S=>{S.sites[0].segs[0].jam=true}}],
+  events:[{t:4.1,run:S=>{S.sites[0].segs[0].jam=true}}],
   spawns:[{t:0,type:'car',lane:1,kmh:50},{t:2,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A09'},{t:6,type:'suv',lane:1,kmh:50},{t:11,type:'car',lane:0,kmh:50}]},
  {id:'power',name:'Power loss & failsafe',dur:36,len:220,sites:[140],inc:{id:'INC-26-10488',type:'Fall from height',prio:'P1'},
   events:[{t:3,run:S=>{S.power='battery';log('Grid supply lost — controller running on battery backup','warn',true)}},{t:17,run:S=>{S.power='fault';log('Controller fault detected — maintenance crew dispatched','bad',true)}}],
@@ -423,6 +425,58 @@ const SC=[
  {id:'corridor',name:'Green corridor (3 units + signal)',dur:31,len:520,sites:[100,210,320],signal:{x:430,lane:0},inc:{id:'INC-26-10489',type:'Cardiac arrest',prio:'P1 · patient on board'},
   spawns:[{t:0,type:'car',lane:0,kmh:50,x:420,v0:0},{t:0,type:'suv',lane:0,kmh:50,x:398,v0:0},{t:1,type:'car',lane:1,kmh:50},{t:2,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:7,type:'suv',lane:1,kmh:50},{t:14,type:'car',lane:1,kmh:50}]}
 ];
+
+/* ===== additional scenarios (use cases E3-E9, C2-C4, S3-S4, N1-N3, N5, H5-H6, O1-O3) ===== */
+SC.push(
+ {id:'fast',name:'Arrives faster than planned (E3)',dur:24,len:220,sites:[140],inc:{id:'INC-26-10490',type:'Cardiac arrest',prio:'P1 · joins from side road'},
+  spawns:[{t:0,type:'car',lane:1,kmh:50},{t:3,type:'amb',lane:0,kmh:95,x:103,v0:kmh(95),...EMV,label:'Ambulance A12 (joins from side road)'},{t:9,type:'car',lane:0,kmh:50},{t:11,type:'suv',lane:1,kmh:50}]},
+ {id:'overtake',name:'Overtaking in the opposite lane (E5)',dur:26,len:220,sites:[140],inc:{id:'INC-26-10491',type:'Road traffic collision',prio:'P1'},
+  spawns:[{t:0,type:'car',lane:0,kmh:50,x:125,v0:0,hold:8},{t:0,type:'suv',lane:0,kmh:50,x:115,v0:0,hold:8.6},{t:0,type:'car',lane:0,kmh:50,x:105,v0:0,hold:9.2},{t:0,type:'van',lane:0,kmh:50,x:94,v0:0,hold:9.8},{t:2,type:'amb',lane:1,dir:1,x:-12,kmh:80,...EMV,label:'Ambulance A07 (opposite lane)'},{t:16,type:'suv',lane:1,kmh:50}]},
+ {id:'returning',name:'Returning without lights (E7)',dur:30,len:220,sites:[140],inc:{id:'INC-26-10492',type:'Stroke',prio:'P1 · patient on board (second call)'},
+  spawns:[{t:1,type:'car',lane:1,kmh:50},{t:2,type:'amb',lane:0,kmh:70,tag:true,status:'returning',hw:1.5,label:'Ambulance A03 (returning, lights off)'},{t:8,type:'suv',lane:1,kmh:50},{t:14,type:'amb',lane:0,kmh:80,...EMV,status:'patient',label:'Ambulance A12 (patient on board)'}]},
+ {id:'pursuit',name:'Police pursuit, no dispatch (E8)',dur:24,len:220,sites:[140],
+  spawns:[{t:0,type:'car',lane:1,kmh:50},{t:2,type:'police',lane:0,kmh:95,tag:true,siren:true,hw:1.2,label:'Police P7 (pursuit)'},{t:6,type:'suv',lane:1,kmh:50},{t:12,type:'car',lane:0,kmh:50}]},
+ {id:'queue',name:'Queue on the unit (E9)',dur:30,len:220,sites:[140],inc:{id:'INC-26-10493',type:'Cardiac arrest',prio:'P1'},
+  spawns:[{t:0,type:'car',lane:0,kmh:50,x:137,v0:0,hold:1.5},{t:0,type:'suv',lane:0,kmh:50,x:127,v0:0,hold:2.1},{t:5,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:5,type:'car',lane:1,kmh:50}]},
+ {id:'broken',name:'Broken-down vehicle on the unit (C2)',dur:32,len:220,sites:[140],inc:{id:'INC-26-10494',type:'Breathing difficulty',prio:'P1'},
+  events:[{t:14,run:S=>{S.veh=S.veh.filter(v=>!v.broken);log('Tow truck cleared the vehicle — unit released','em')}}],
+  spawns:[{t:0,type:'suv',lane:0,kmh:0,x:138,v0:0,broken:true,label:'Broken-down SUV'},{t:2,type:'car',lane:1,kmh:50},{t:5,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A09'},{t:9,type:'car',lane:1,kmh:50}]},
+ {id:'pedestrian',name:'Pedestrians on the table (C3)',dur:26,len:220,sites:[140],zebra:true,inc:{id:'INC-26-10495',type:'Fall from height',prio:'P1'},
+  peds:[{t:3,rate:.17,off:-1},{t:3.8,rate:.17,off:1.4},{t:6,rate:.2,off:0}],
+  spawns:[{t:0,type:'car',lane:1,kmh:50},{t:2,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:14,type:'suv',lane:1,kmh:50}]},
+ {id:'cyclist',name:'Cyclist on the unit (C4)',dur:24,len:220,sites:[140],inc:{id:'INC-26-10496',type:'Road traffic collision',prio:'P1'},
+  spawns:[{t:0,type:'bike',lane:0,kmh:12,x:125,v0:kmh(12),label:'Cyclist'},{t:3.5,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A07'},{t:6,type:'car',lane:1,kmh:50}]},
+ {id:'replay',name:'Replayed message (S3)',dur:30,len:220,sites:[140],
+  spawns:[{t:0,type:'car',lane:1,kmh:50},{t:2,type:'car',lane:0,kmh:60,tag:true,forged:'replay',hw:1.5,label:'Car replaying a recorded message',color:'#77899a'},{t:7,type:'suv',lane:1,kmh:50},{t:17,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'}]},
+ {id:'attack',name:'Platform commands mass actuation (S4)',dur:24,len:220,sites:[60,150],
+  events:[{t:3,run:S=>platformCmd()},{t:9,run:S=>platformCmd()}],
+  spawns:[{t:0,type:'car',lane:0,kmh:50},{t:1,type:'suv',lane:1,kmh:50},{t:6,type:'car',lane:0,kmh:55},{t:8,type:'van',lane:1,kmh:50},{t:12,type:'car',lane:0,kmh:50}]},
+ {id:'flood',name:'Flash flood fills the pit (N3)',dur:32,len:220,sites:[140],inc:{id:'INC-26-10497',type:'Cardiac arrest',prio:'P1'},
+  events:[{t:10,run:S=>{S.flooding=true;log('Rain: pit water level rising','warn')}}],
+  spawns:[{t:0,type:'car',lane:1,kmh:50},{t:2,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:6,type:'suv',lane:1,kmh:45},{t:18,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A07'},{t:21,type:'car',lane:1,kmh:45}]},
+ {id:'sand',name:'Sand, heat and self-test (N1, N2)',dur:34,len:220,sites:[140],inc:{id:'INC-26-10498',type:'Stroke',prio:'P1'},
+  events:[{t:.5,run:S=>{S.env.sand=.8;S.env.temp=63;log('N1: road surface 63 °C, sand level 80% — heat derate active, actuation slower','warn')}},
+   {t:15,run:S=>{const low=cfg.lowerT*(1+S.env.sand*.8)*1.15,pct=Math.round(((4+S.env.sand*3.5+.6)/4-1)*100);log(`N2: nightly self-test on the quiet westbound segment — lowering ${low.toFixed(1)} s (baseline ${cfg.lowerT.toFixed(1)} s), motor current +${pct}% → sand build-up trend, service ticket raised`,'warn')}}],
+  spawns:[{t:1,type:'car',lane:1,kmh:50},{t:2,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:9,type:'suv',lane:0,kmh:50}]},
+ {id:'night',name:'Night and sandstorm LEDs (N5)',dur:27,len:220,sites:[140],env:'night',inc:{id:'INC-26-10499',type:'Gas leak',prio:'P2'},
+  spawns:[{t:0,type:'car',lane:1,kmh:50},{t:2,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:5,type:'suv',lane:1,kmh:50},{t:10,type:'car',lane:0,kmh:50}]},
+ {id:'stuck',name:'Stuck flush (H5)',dur:24,len:220,sites:[140],
+  events:[{t:1,run:S=>{const g=S.sites[0].segs[0];g.stuck=true;g.h=0;log('Eastbound actuator stuck flush — calming lost, temporary warning signs requested, priority repair raised','bad',true)}}],
+  spawns:[{t:0,type:'car',lane:1,kmh:50},{t:3,type:'car',lane:0,kmh:60},{t:6,type:'suv',lane:0,kmh:55},{t:8,type:'car',lane:1,kmh:50},{t:11,type:'van',lane:0,kmh:60},{t:15,type:'car',lane:0,kmh:65}]},
+ {id:'sensors',name:'Sensors disagree (H6)',dur:30,len:220,sites:[140],inc:{id:'INC-26-10500',type:'Breathing difficulty',prio:'P1'},
+  events:[{t:3,run:S=>{S.disagree=true;log('Radar and camera disagree on zone occupancy — freeze position and raise alarm','bad',true)}},{t:12,run:S=>{S.disagree=false;log('Sensors agree again — normal operation resumes','em')}}],
+  spawns:[{t:0,type:'car',lane:1,kmh:50},{t:2,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:7,type:'suv',lane:1,kmh:50},{t:16,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A07'}]},
+ {id:'event',name:'Marathon event mode (O1)',dur:30,len:220,sites:[140],zebra:true,
+  peds:[{t:3,rate:.33,off:-2.5},{t:3.6,rate:.36,off:.5},{t:4.1,rate:.3,off:2.2},{t:5,rate:.35,off:-1},{t:5.6,rate:.38,off:1.4},{t:6.5,rate:.32,off:-3},{t:7.1,rate:.34,off:0},{t:8,rate:.37,off:2.8}],
+  events:[{t:1,run:S=>setLock(S.sites[0],'flush','Event mode: marathon — unit locked flush from operations')}],
+  spawns:[{t:16,type:'amb',lane:0,kmh:60,...EMV,label:'Ambulance A12'}]},
+ {id:'evac',name:'Evacuation, all units lowered (O2)',dur:30,len:220,sites:[50,110,170],
+  events:[{t:1,run:S=>S.sites.forEach((si,i)=>{si.lock='flush';si.lockLabel='Evacuation: all units on route lowered';if(!i)log('Evacuation: all units on route lowered','warn')})}],
+  spawns:[{t:5,type:'car',lane:0,kmh:65},{t:6.2,type:'suv',lane:0,kmh:65},{t:7.3,type:'van',lane:0,kmh:60},{t:8.5,type:'car',lane:0,kmh:70},{t:9.4,type:'car',lane:1,kmh:60},{t:10.6,type:'suv',lane:0,kmh:65},{t:12,type:'car',lane:1,kmh:65},{t:13,type:'car',lane:0,kmh:70},{t:15,type:'van',lane:0,kmh:60}]},
+ {id:'maint',name:'Maintenance lockout (O3)',dur:34,len:220,sites:[140],inc:{id:'INC-26-10501',type:'Cardiac arrest',prio:'P1'},
+  events:[{t:.5,run:S=>setLock(S.sites[0],'maint','Maintenance: crew lockout on S1')},{t:15,run:S=>setLock(S.sites[0],null,'Maintenance: lockout released by crew')}],
+  spawns:[{t:1,type:'car',lane:1,kmh:50},{t:3,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:9,type:'suv',lane:1,kmh:50},{t:20,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A07'},{t:25,type:'car',lane:0,kmh:50}]}
+);
 SC.forEach(s=>s.spawns.sort((a,b)=>a.t-b.t));
 
 /* ================= engine ================= */
@@ -432,65 +486,99 @@ const alarmLog=[];let alarmSeq=0;
 function log(msg,kind='',alarm=false){S.log.unshift({t:S.t,msg,kind});if(S.log.length>80)S.log.pop();logDirty=true;
   if(alarm||kind==='bad'||(kind==='warn'&&/rejected|captured|held|jammed|lost|stopped/i.test(msg))){alarmLog.unshift({id:++alarmSeq,at:new Date(),msg,kind,acked:false,src:sc.name});alarmsDirty=true}}
 function reset(){
-  S={t:0,veh:[],spI:0,evI:0,power:'grid',link:true,light:sc.signal?'red':null,preT:0,log:[],act:0,rej:0,civ:[],em:null,emLabel:'',flatCiv:0,nid:1,hist:[],histT:0,flashes:[],emSeen:false,emDone:false,
-    sites:sc.sites.map((x,i)=>({x,name:'S'+(i+1),segs:[0,1].map(l=>({lane:l,h:1,state:'RAISED',mode:null,clearT:0,sig:{},cycles:0}))}))};
+  S={t:0,veh:[],peds:[],pdI:0,disagree:false,water:.05,flooding:false,env:{sand:.03,temp:41,night:sc.env==='night'},spI:0,evI:0,power:'grid',link:true,light:sc.signal?'red':null,preT:0,log:[],act:0,rej:0,civ:[],em:null,emLabel:'',flatCiv:0,nid:1,hist:[],histT:0,flashes:[],emSeen:false,emDone:false,
+    sites:sc.sites.map((x,i)=>({x,name:'S'+(i+1),lock:null,lockLabel:'',flooded:false,segs:[0,1].map(l=>({lane:l,h:1,state:'RAISED',mode:null,clearT:0,sig:{},cycles:0,missed:0,warned:0,still:0,blockLogged:false,dnfUntil:0}))}))};
   endHold=0;logDirty=true;
   log('Scenario start — all units raised, power on grid, platform link up');
 }
 const segName=(site,seg)=>site.name+' '+(seg.lane===0?'EB':'WB');
 const distTo=(v,x)=>(x-v.x)*v.dir-v.len/2;
 function spawn(sp){
-  const T=TYPES[sp.type],dir=sp.lane===0?1:-1,x=sp.x??(sp.lane===0?-12:sc.len+12);
-  if(S.veh.some(o=>o.lane===sp.lane&&Math.abs(o.x-x)<(o.len+T.len)/2+3))return false;
-  const id=S.nid++;
+  const T=TYPES[sp.type],dir=sp.dir??(sp.lane===0?1:-1),x=sp.x??(dir===1?-12:sc.len+12);
+  if(S.veh.some(o=>o.lane===sp.lane&&o.dir===dir&&Math.abs(o.x-x)<(o.len+T.len)/2+3))return false;
+  const id=S.nid++,returning=sp.status==='returning';
   S.veh.push({id,type:sp.type,lane:sp.lane,dir,x,len:T.len,w:T.w,color:sp.color||T.color,acc:T.acc,cruise:kmh(sp.kmh),v:sp.v0??kmh(sp.kmh),hw:sp.hw||1.5,brake:false,
-    dispatch:!!sp.dispatch,tag:!!sp.tag,siren:!!sp.siren,forged:!!sp.forged,em:!!(sp.dispatch||sp.tag)&&!sp.forged,label:sp.label||T.name,
+    dispatch:!!sp.dispatch,tag:!!sp.tag,siren:!!sp.siren,forged:sp.forged||false,status:sp.status||'',hold:sp.hold||0,broken:!!sp.broken,seen:{},
+    em:!!(sp.dispatch||sp.tag)&&!sp.forged&&!returning,label:sp.label||T.name,
     plate:`${1+id*3%9}-${String(10000+(id*7919)%89999)}`,prev:{}});
   return true;
 }
+function spawnPed(p){S.peds.push({x:S.sites[0].x+(p.off||0),p:0,rate:p.rate||.18,on:false,ph:Math.random()*6})}
+function platformCmd(){
+  for(const site of S.sites)for(const seg of site.segs){const n=segName(site,seg);S.rej++;log(`${n}: platform LOWER command rejected — no local sensor evidence (no credentialed vehicle in zone)`,'bad',true)}
+}
+function setLock(site,mode,msg){site.lock=mode;site.lockLabel=msg;log(msg,mode?'warn':'em')}
 function control(site,seg,dt){
-  const lane=seg.lane,inLane=S.veh.filter(v=>v.lane===lane);
-  let disp=false,v2x=null;
-  for(const v of inLane){const d=distTo(v,site.x);
-    if(v.dispatch&&S.link&&d<=cfg.geofence&&d>=-(v.len+3))disp=true;
-    if(v.tag&&d<=cfg.v2x&&d>=-(v.len+3)){
-      if(v.forged){if(!v.forgeLogged){v.forgeLogged=true;S.rej++;log(`${segName(site,seg)}: V2X signature invalid (${v.label}, plate ${v.plate}) — rejected, alert sent to police`,'bad')}}
-      else v2x=v}}
-  const acoustic=S.veh.some(v=>v.siren&&Math.abs(v.x-site.x)<cfg.acoustic);
-  const onTop=inLane.some(v=>{const d=distTo(v,site.x);return d<=2&&d>=-(v.len+2)});
-  const approach=inLane.some(v=>{const d=distTo(v,site.x);return d<=cfg.buffer&&d>=-(v.len+3)});
+  const lane=seg.lane,inLane=S.veh.filter(v=>v.lane===lane),n=segName(site,seg);
   const powered=S.power!=='fault';
+  const lowerT=cfg.lowerT*(1+S.env.sand*.8)*(S.env.temp>60?1.15:1),raiseT=cfg.raiseT*(1+S.env.sand*.4);
+  let disp=false,v2x=null,credA=null,credAD=1e9;
+  for(const v of inLane){const d=distTo(v,site.x);if(d<-(v.len+3))continue;
+    if(v.dispatch&&S.link&&d<=cfg.geofence){disp=true;if(d>=0&&d<credAD){credA=v;credAD=d}}
+    if(v.tag&&d<=cfg.v2x){
+      if(v.forged){if(!v.forgeLogged){v.forgeLogged=true;S.rej++;const why=v.forged==='replay'?'message counter already used (replay)':'V2X signature invalid';log(`${n}: ${why} (${v.label}, plate ${v.plate}) — rejected, alert sent to police`,'bad')}}
+      else if(v.status==='returning'){if(!v.seen[n]){v.seen[n]=1;log(`${n}: ${v.label} has a valid credential but dispatch status is "available, returning to station" — no priority`)}}
+      else{v2x=v;if(d>=0&&d<credAD){credA=v;credAD=d}}}}
+  const acoustic=S.veh.some(v=>v.siren&&Math.abs(v.x-site.x)<cfg.acoustic);
+  const pedOn=S.peds.some(p=>p.on&&Math.abs(p.x-site.x)<5);
+  const onTop=pedOn||inLane.some(v=>{const d=distTo(v,site.x);return d<=2&&d>=-(v.len+2)});
+  const approach=pedOn||inLane.some(v=>{const d=distTo(v,site.x);return d<=cfg.buffer&&d>=-(v.len+3)});
+  const reach=pred=>pedOn||inLane.some(v=>{if(!pred(v))return false;const d=distTo(v,site.x);return d>=-(v.len+2)&&d<=Math.max(8,v.v*(lowerT+1))});
+  const reachCiv=reach(v=>!v.em),reachAny=reach(()=>true);
   const conf=(disp?1:0)+(v2x?1:0)+(acoustic?1:0);
   const cred=powered&&(disp||!!v2x);
-  const auth=cred&&conf>=cfg.need;
-  seg.sig={disp:powered&&disp,v2x:powered&&!!v2x,acoustic,clear:!approach,conf};seg.v2xVeh=powered?v2x:null;seg.active=cred;
+  if(seg.missed){const mv=S.veh.find(v=>v.id===seg.missed);if(!mv||distTo(mv,site.x)<-(mv.len+3))seg.missed=0}
+  const auth=cred&&conf>=cfg.need&&!S.disagree&&!seg.missed&&!site.lock;
+  seg.sig={disp:powered&&disp,v2x:powered&&!!v2x,acoustic,clear:!approach,conf};seg.v2xVeh=powered?v2x:null;seg.active=cred&&!site.lock;
   if(powered&&acoustic&&!disp&&!v2x){
     const near=S.veh.filter(v=>v.em&&Math.abs(v.x-site.x)<cfg.acoustic);
     if(!near.length){if(!site.rejLogged){site.rejLogged=true;S.rej++;log(`${site.name}: siren heard, no dispatch incident or V2X credential — request rejected, unit stays raised`,'warn')}}
     else if(!seg.oppLogged&&near.some(v=>v.lane!==lane)&&!near.some(v=>v.lane===lane)){seg.oppLogged=true;log(`${segName(site,seg)}: siren from the opposite lane — this segment stays raised`)}
   }else if(!acoustic){seg.oppLogged=false;site.rejLogged=false}
+  const stillOn=inLane.some(v=>v.v<.3&&distTo(v,site.x)<=2&&distTo(v,site.x)>=-(v.len+2));
+  if(stillOn&&!pedOn){seg.still+=dt;if(seg.still>2&&!seg.blockLogged){seg.blockLogged=true;log(`${n}: vehicle stationary on the unit — locked in place, operations alerted, dispatch told to reroute`,'warn',true)}}
+  else{seg.still=0;if(!stillOn)seg.blockLogged=false}
   const prev=seg.state;let st=prev;
   if(seg.jam){st='JAMMED'}
+  else if(site.flooded){if(seg.h<1&&!onTop)seg.h=Math.min(1,seg.h+dt/raiseT);st='UNAVAIL'}
   else if(!powered){if(seg.h<1&&!onTop)seg.h=Math.min(1,seg.h+dt/1.5);st='FAILSAFE'}
-  else if(auth||(seg.mode==='em'&&cred)){
+  else if(seg.stuck){seg.h=0;st='STUCK'}
+  else if(S.disagree){st='SENSOR'}
+  else if(site.lock==='maint'){st='MAINT';if(cred&&credA&&!credA.seen['m'+n]){credA.seen['m'+n]=1;S.rej++;log(`${n}: request from ${credA.label} ignored — maintenance lockout`,'warn')}}
+  else if(site.lock==='flush'){if(seg.h>0){if(prev==='LOWERING'||(!onTop&&!reachAny)){seg.h=Math.max(0,seg.h-dt/lowerT);st='LOWERING'}else st='WAIT'}else st='LOCKED'}
+  else if(site.lock==='raised'){if(seg.h<1){if(!approach){seg.h=Math.min(1,seg.h+dt/raiseT);st='RAISING'}else st='FROZEN'}else st='LOCKED'}
+  else if(auth||(seg.mode==='em'&&cred&&!seg.missed&&!site.lock)){
     seg.mode='em';seg.clearT=0;
-    if(seg.h>0){if(onTop&&prev!=='LOWERING')st='WAIT';else{seg.h=Math.max(0,seg.h-dt/cfg.lowerT);st='LOWERING'}}
+    if(seg.h>0){
+      if(prev==='LOWERING'){seg.h=Math.max(0,seg.h-dt/lowerT);st='LOWERING'}
+      else{
+        const eta=credA?Math.max((-credA.v+Math.sqrt(credA.v*credA.v+2*credA.acc*credAD))/credA.acc,credAD/Math.max(credA.cruise,1)):99;
+        if(seg.h>=1&&!credA){st='RAISED';seg.mode=null}
+        else if(onTop||reachCiv){st=seg.h<1?'FROZEN':'WAIT';
+          if(credA&&seg.warned!==credA.id){seg.warned=credA.id;log(`${n}: in-cab warning (V2X) to ${credA.label} — unit blocked ahead, slow down`,'warn')}}
+        else if(seg.h===1&&credA.v>8&&eta<lowerT+.7){seg.missed=credA.id;st='RAISED';
+          log(`${n}: ${credA.label} arrives in ${eta.toFixed(1)} s, lowering takes ${lowerT.toFixed(1)} s — window missed, unit kept raised, in-cab warning sent`,'warn',true)}
+        else{seg.h=Math.max(0,seg.h-dt/lowerT);st='LOWERING'}}}
     if(seg.h<=0)st='FLAT';
   }else if(seg.h<1){
     if(approach){seg.clearT=0;st=(prev==='RAISING'||prev==='FROZEN')?'FROZEN':'HOLD'}
-    else{seg.clearT+=dt;if(seg.clearT>=cfg.clearT){seg.h=Math.min(1,seg.h+dt/cfg.raiseT);st='RAISING'}else st=prev==='FROZEN'?'FROZEN':'HOLD'}
+    else{seg.clearT+=dt;if(seg.clearT>=cfg.clearT){seg.h=Math.min(1,seg.h+dt/raiseT);st='RAISING'}else st=prev==='FROZEN'?'FROZEN':'HOLD'}
     if(seg.h>=1){st='RAISED';seg.mode=null}
   }else{st='RAISED';seg.mode=null}
-  if(st!==prev){seg.state=st;const n=segName(site,seg);
+  if(st!==prev){seg.state=st;
     const why=[seg.sig.disp&&'dispatch geofence',seg.sig.v2x&&'V2X',acoustic&&'siren'].filter(Boolean).join(' + ');
-    const M={LOWERING:[`${n}: lowering — ${why} confirmed (${conf}/3)`,'em'],WAIT:[`${n}: lower request held, vehicle on the unit`,'warn'],
+    const M={LOWERING:[site.lock?`${n}: lowering — ${site.lockLabel}`:`${n}: lowering — ${why} confirmed (${conf}/3)`,'em'],
+      WAIT:[`${n}: lower request held — ${pedOn?'pedestrian on the unit':'vehicle on or approaching the unit'}`,'warn'],
       FLAT:[`${n}: flush with road surface${cfg.leds?', LEDs blue':''}`,'em'],HOLD:[`${n}: emergency vehicle clear — waiting for empty zone${cfg.leds?', LEDs red: do not follow':''}`,''],
-      FROZEN:[`${n}: vehicle entered zone while raising — movement stopped`,'warn'],RAISING:[`${n}: zone clear ${cfg.clearT} s — raising`,''],
+      FROZEN:[`${n}: vehicle entered zone while moving — movement stopped`,'warn'],RAISING:[`${n}: zone clear ${cfg.clearT} s — raising`,''],
       RAISED:[`${n}: raised, calming restored`,''],FAILSAFE:[`${n}: spring failsafe holds unit raised, triggers ignored`,'bad'],
-      JAMMED:[`${n}: actuator jammed at ${Math.round(seg.h*75)} mm — unit locked, warning lights on, in-cab warning sent to approaching crews`,'bad']};
-    if(st==='LOWERING')S.act++;
+      JAMMED:[`${n}: actuator jammed at ${Math.round(seg.h*75)} mm — unit locked, warning lights on, in-cab warning sent to approaching crews`,'bad'],
+      UNAVAIL:[`${n}: pit water level high — unit stays raised, reported unavailable to dispatch`,'bad'],
+      SENSOR:[`${n}: sensors disagree — frozen at ${Math.round(seg.h*75)} mm, alarm raised`,'bad'],
+      MAINT:[`${n}: maintenance lockout — triggers ignored`,'warn'],LOCKED:[`${n}: locked ${seg.h<=0?'flush':'raised'} by operations`,'warn'],STUCK:[null,'']};
+    if(st==='LOWERING'&&!site.lock)S.act++;
     if(st==='RAISED'&&prev==='RAISING')seg.cycles++;
-    if(M[st]&&!(st==='RAISED'&&prev==='FAILSAFE'))log(M[st][0],M[st][1]);
+    if(M[st]&&M[st][0]&&!(st==='RAISED'&&prev==='FAILSAFE'))log(M[st][0],M[st][1]);
   }
 }
 function signalCtl(dt){
@@ -501,12 +589,14 @@ function signalCtl(dt){
 }
 function drive(v,dt){
   let des=v.cruise;
+  if(v.hold&&S.t<v.hold)des=0;
   for(const site of S.sites){const seg=site.segs[v.lane],d=distTo(v,site.x);
     if(seg.h>0.15&&d<=(v.em?45:60)&&d>=-v.len)des=Math.min(des,4.2+Math.max(0,d)*0.32)}
   const g=sc.signal;
   if(g&&g.lane===v.lane&&S.light==='red'){const ds=(g.x-3-v.x)*v.dir-v.len/2;if(ds>=-0.5&&ds<45)des=Math.min(des,Math.max(0,ds*0.6))}
+  for(const p of S.peds){if(!p.on)continue;const lc=v.lane===1?.25:.75;if(Math.abs(p.p-lc)>.4)continue;const ds=(p.x-v.x)*v.dir-v.len/2-1.5;if(ds>-1&&ds<40)des=Math.min(des,Math.max(0,ds*.6))}
   let best=1e9,lead=null;
-  for(const o of S.veh){if(o===v||o.lane!==v.lane)continue;const gap=(o.x-v.x)*v.dir-(o.len+v.len)/2;if(gap>-1&&gap<best){best=gap;lead=o}}
+  for(const o of S.veh){if(o===v||o.lane!==v.lane||o.dir!==v.dir)continue;const gap=(o.x-v.x)*v.dir-(o.len+v.len)/2;if(gap>-1&&gap<best){best=gap;lead=o}}
   if(lead)des=Math.min(des,Math.max(0,(best-2.5)/v.hw));
   const pv=v.v;
   v.v+=Math.max(-7.5*dt,Math.min(v.acc*dt,des-v.v));if(v.v<0)v.v=0;
@@ -515,17 +605,24 @@ function drive(v,dt){
   v.x+=v.v*dt*v.dir;
   if(v.em)S.emSeen=true;
   S.sites.forEach((site,i)=>{const s=(v.x-site.x)*v.dir;const p=v.prev[i];v.prev[i]=s;
-    if(p!==undefined&&p<0&&s>=0){const h=site.segs[v.lane].h,k=Math.round(v.v*3.6);
-      if(v.em){S.em=k;S.emLabel=v.label;log(`${v.label} crossed ${site.name} at ${k} km/h — ${h<0.1?'surface flush, no braking':'unit raised'}`,h<0.1?'em':'bad')}
+    if(p!==undefined&&p<0&&s>=0){const seg=site.segs[v.lane],h=seg.h,k=Math.round(v.v*3.6);
+      if(v.em){S.em=k;S.emLabel=v.label;log(`${v.label} crossed ${site.name} at ${k} km/h — ${h<0.1?'surface flush, no braking':'unit raised'}`,h<0.1?'em':'bad');if(h<.1)seg.dnfUntil=S.t+6}
       else if(h>0.5)S.civ.push(k);
       else{S.flatCiv++;
-        if(cfg.enforce){S.flashes.push({x:site.x,lane:v.lane,t:S.t,plate:v.plate});log(`${v.label} crossed ${site.name} flush behind emergency vehicle — plate ${v.plate} captured, evidence sent to police platform`,'warn')}
+        if(seg.stuck)log(`${v.label} crossed ${site.name} at ${k} km/h — calming lost (unit stuck flush)`,'warn');
+        else if(site.lock)log(`${v.label} crossed ${site.name} at ${k} km/h — unit locked flush (${site.lockLabel.split(' — ')[0]})`,'warn');
+        else if(cfg.enforce){S.flashes.push({x:site.x,lane:v.lane,t:S.t,plate:v.plate});log(`${v.label} crossed ${site.name} flush behind emergency vehicle — plate ${v.plate} captured, evidence sent to police platform`,'warn')}
         else log(`${v.label} crossed ${site.name} flush behind emergency vehicle — accepted, no actuation under traffic`,'warn')}}});
 }
 function step(dt){
   S.t+=dt;
   const ev=sc.events||[];while(S.evI<ev.length&&ev[S.evI].t<=S.t){ev[S.evI].run(S);S.evI++}
   while(S.spI<sc.spawns.length&&sc.spawns[S.spI].t<=S.t){if(!spawn(sc.spawns[S.spI]))break;S.spI++}
+  const pd=sc.peds||[];while(S.pdI<pd.length&&pd[S.pdI].t<=S.t){spawnPed(pd[S.pdI]);S.pdI++}
+  if(S.flooding)S.water=Math.min(1,S.water+dt*.22);else S.water=Math.max(.05,S.water-dt*.05);
+  S.sites.forEach(si=>{si.flooded=S.water>.7});
+  for(const p of S.peds){if(p.p<1)p.p+=p.rate*dt;p.on=p.p>.001&&p.p<1}
+  S.peds=S.peds.filter(p=>p.p<1.15);
   for(const site of S.sites)for(const seg of site.segs)control(site,seg,dt);
   signalCtl(dt);
   for(const v of S.veh)drive(v,dt);
@@ -608,14 +705,19 @@ function buildBG(){
   for(let x=60;x<W;x+=150){const y=(roadB+walkB)/2;g.strokeStyle='#9aa0a2';g.lineWidth=2;g.beginPath();g.moveTo(x,y);g.lineTo(x,roadB-laneH*.35);g.stroke();
     g.fillStyle='#d9dcd2';g.fillRect(x-5,roadB-laneH*.35-3,10,5);g.fillStyle='#3c4144';g.beginPath();g.arc(x,y,3.5,0,7);g.fill()}
 }
-const LED={RAISED:'#f2b632',LOWERING:'#5b8cff',FLAT:'#5b8cff',WAIT:'#f2b632',HOLD:'#ff4a3d',RAISING:'#ff4a3d',FROZEN:'#ff4a3d',FAILSAFE:'#ff4a3d',JAMMED:'#ff4a3d'};
-const LAB={RAISED:'RAISED',LOWERING:'LOWERING',FLAT:'FLUSH',WAIT:'HELD',HOLD:'FLUSH · WAIT',RAISING:'RAISING',FROZEN:'FROZEN',FAILSAFE:'FAILSAFE',JAMMED:'JAMMED'};
-const LABC={RAISED:'#f2b632',FLAT:'#38c6b2',HOLD:'#38c6b2',LOWERING:'#6f8ef0',RAISING:'#6f8ef0',WAIT:'#f2b632',FROZEN:'#ff5d52',FAILSAFE:'#ff5d52',JAMMED:'#ff5d52'};
+const LED={RAISED:'#f2b632',LOWERING:'#5b8cff',FLAT:'#5b8cff',WAIT:'#f2b632',HOLD:'#ff4a3d',RAISING:'#ff4a3d',FROZEN:'#ff4a3d',FAILSAFE:'#ff4a3d',JAMMED:'#ff4a3d',UNAVAIL:'#ff4a3d',SENSOR:'#ff4a3d',MAINT:'#f2b632',LOCKED:'#38c6b2',STUCK:'#38c6b2'};
+const LAB={RAISED:'RAISED',LOWERING:'LOWERING',FLAT:'FLUSH',WAIT:'HELD',HOLD:'FLUSH · WAIT',RAISING:'RAISING',FROZEN:'FROZEN',FAILSAFE:'FAILSAFE',JAMMED:'JAMMED',UNAVAIL:'UNAVAILABLE',SENSOR:'SENSOR FREEZE',MAINT:'MAINTENANCE',LOCKED:'LOCKED',STUCK:'STUCK FLUSH'};
+const LABC={RAISED:'#f2b632',FLAT:'#38c6b2',HOLD:'#38c6b2',LOWERING:'#6f8ef0',RAISING:'#6f8ef0',WAIT:'#f2b632',FROZEN:'#ff5d52',FAILSAFE:'#ff5d52',JAMMED:'#ff5d52',UNAVAIL:'#ff5d52',SENSOR:'#ff5d52',MAINT:'#f2b632',LOCKED:'#38c6b2',STUCK:'#ff5d52'};
 function pill(text,x,y,color,fs,align='center'){ctx.font=`500 ${fs}px IBM Plex Mono`;const w=ctx.measureText(text).width+12,h=fs*1.45;const x0=align==='center'?x-w/2:x;
   rr(ctx,x0,y,w,h,4);ctx.fillStyle='rgba(11,16,19,.88)';ctx.fill();ctx.fillStyle=color;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(text,x0+6,y+h/2+.5)}
 function drawVehicle(v){
   const {laneH,sx,k,X}=G,cx=X(v.x),cy=G.laneY(v.lane),vw=laneH*v.w,vl=Math.max(v.len*sx*k,vw*1.6);
   if(v.siren){for(let j=0;j<3;j++){const ph=((S.t*.9+j/3)%1);ctx.beginPath();ctx.arc(cx,cy,vw*.6+ph*laneH*1.7,0,7);ctx.strokeStyle=`rgba(255,93,82,${.32*(1-ph)})`;ctx.lineWidth=1.4;ctx.stroke()}}
+  if(v.type==='bike'){ctx.save();ctx.translate(cx,cy);if(v.dir<0)ctx.rotate(Math.PI);const bl=Math.max(16,v.len*sx*k*.7),bw2=Math.max(7,laneH*.14);
+    ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(1,2,bl/2,bw2*.6,0,0,7);ctx.fill();ctx.strokeStyle='#15191c';ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(-bl/2,0);ctx.lineTo(bl/2,0);ctx.stroke();
+    ctx.strokeStyle='#d0d6d9';ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(bl*.28,-bw2);ctx.lineTo(bl*.28,bw2);ctx.stroke();ctx.fillStyle='#f0b27a';ctx.beginPath();ctx.arc(0,0,bw2*.42,0,7);ctx.fill();
+    ctx.fillStyle=v.color;ctx.beginPath();ctx.ellipse(-bl*.05,0,bw2*.55,bw2*.85,0,0,7);ctx.fill();ctx.restore();
+    const kb=Math.round(v.v*3.6);pill(`${kb} km/h`,cx,cy-bw2-G.fs*1.7,'#e3ebee',G.fs*.82);return}
   ctx.save();ctx.translate(cx,cy);if(v.dir<0)ctx.rotate(Math.PI);
   ctx.fillStyle='rgba(0,0,0,.4)';rr(ctx,-vl/2+3,-vw/2+4,vl,vw,vw*.28);ctx.fill();
   const gr=ctx.createLinearGradient(0,-vw/2,0,vw/2);gr.addColorStop(0,shade(v.color,-.28));gr.addColorStop(.5,shade(v.color,.08));gr.addColorStop(1,shade(v.color,-.28));
@@ -638,6 +740,7 @@ function drawVehicle(v){
     ctx.fillStyle='rgba(20,30,40,.82)';ctx.beginPath();ctx.moveTo(vl*.2,-vw*.38);ctx.lineTo(vl*.33,-vw*.42);ctx.lineTo(vl*.33,vw*.42);ctx.lineTo(vl*.2,vw*.38);ctx.closePath();ctx.fill();
     ctx.fillStyle=shade(v.color,-.08);rr(ctx,-vl*.24,-vw*.36,vl*.44,vw*.72,3);ctx.fill();
     ctx.fillStyle='rgba(20,30,40,.75)';ctx.fillRect(-vl*.35,-vw*.34,vl*.09,vw*.68);
+    if(v.type==='police'){ctx.fillStyle='#233a8f';ctx.fillRect(-vl*.44,-vw*.48,vl*.62,vw*.1);ctx.fillRect(-vl*.44,vw*.38,vl*.62,vw*.1)}
     if(v.siren)lightbar(vl*.0,vw);
   }
   // lights
@@ -668,6 +771,7 @@ function draw(){
     [['red','#ff5d52'],['amber','#f2b632'],['green','#4fd18b']].forEach(([kk,c],i)=>{const on=S.light===kk;ctx.beginPath();ctx.arc(px+lw/2,py+lw*.5+i*lw*.95,lw*.32,0,7);ctx.fillStyle=on?c:'#2a2f33';ctx.fill();
       if(on){const gl=ctx.createRadialGradient(px+lw/2,py+lw*.5+i*lw*.95,1,px+lw/2,py+lw*.5+i*lw*.95,lw*1.4);gl.addColorStop(0,c+'66');gl.addColorStop(1,c+'00');ctx.fillStyle=gl;ctx.fillRect(px-lw,py-lw+i*lw*.95,lw*3,lw*3)}});
     pill('Signal 07',px+lw+4,py,'#c9d3d8',fs*.78,'left')}
+  if(sc.zebra){for(const site of S.sites){const zx=X(site.x),zw=Math.max(3.5*G.sx*1.6,14)*1.9;ctx.fillStyle='rgba(235,235,225,.5)';for(let y=roadT+8;y<roadB-8;y+=11)ctx.fillRect(zx-zw/2,y,zw,5)}}
   // units
   for(const site of S.sites){
     const cx=X(site.x),bw=Math.max(3.5*G.sx*1.6,14);
@@ -675,7 +779,7 @@ function draw(){
       ctx.fillStyle='#1a1d1f';ctx.fillRect(cx-bw/2-3,y0-2,bw+6,hh+4);ctx.strokeStyle='#6c7377';ctx.lineWidth=1;ctx.strokeRect(cx-bw/2-3,y0-2,bw+6,hh+4);
       ctx.globalAlpha=.16+.84*seg.h;ctx.fillStyle=stripe;ctx.fillRect(cx-bw/2,y0,bw,hh);ctx.globalAlpha=1;
       if(seg.h>.05){ctx.fillStyle=`rgba(0,0,0,${.35*seg.h})`;const dir=seg.lane===0?1:-1;ctx.fillRect(dir>0?cx+bw/2:cx-bw/2-4*seg.h,y0,4*seg.h,hh)}
-      if(cfg.leds){const c=LED[seg.state];const blink=(seg.state==='JAMMED'||seg.state==='FAILSAFE'||seg.state==='FROZEN')?(Math.floor(S.t*3)%2):1;
+      if(cfg.leds){const c=LED[seg.state];const blink=(seg.state==='JAMMED'||seg.state==='FAILSAFE'||seg.state==='FROZEN'||seg.state==='UNAVAIL'||seg.state==='SENSOR'||seg.state==='MAINT')?(Math.floor(S.t*3)%2):1;
         for(let i=0;i<4;i++){const yy=y0+hh*(i+.5)/4;const sweep=(seg.state==='LOWERING'||seg.state==='FLAT')?(Math.floor(S.t*8)%4===i?1:.35):1;
           const a=blink*sweep;for(const ex of [cx-bw/2-1.5,cx+bw/2+1.5]){ctx.fillStyle=c;ctx.globalAlpha=a;ctx.beginPath();ctx.arc(ex,yy,2.1,0,7);ctx.fill();
             const gl=ctx.createRadialGradient(ex,yy,0,ex,yy,7);gl.addColorStop(0,c+'88');gl.addColorStop(1,c+'00');ctx.fillStyle=gl;ctx.fillRect(ex-7,yy-7,14,14);ctx.globalAlpha=1}}}
@@ -692,11 +796,20 @@ function draw(){
   }
   // vehicles
   for(const v of S.veh)drawVehicle(v);
+  for(const p of S.peds){if(p.p<=0)continue;const px=X(p.x),py=roadT+Math.min(1.1,p.p)*(roadB-roadT),r=Math.max(5,laneH*.12),sw=Math.sin(S.t*7+p.ph)*r*.5;
+    ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(px+2,py+3,r*1.1,r*.8,0,0,7);ctx.fill();ctx.fillStyle='#d9b08c';ctx.beginPath();ctx.arc(px+sw*.3,py-r*.9,r*.4,0,7);ctx.fill();
+    ctx.fillStyle=['#e5533b','#3b8be5','#e5c33b','#58b86f'][Math.floor(p.ph)%4];ctx.beginPath();ctx.ellipse(px,py,r*.95,r*.55,0,0,7);ctx.fill();
+    ctx.strokeStyle='#2a2a2a';ctx.lineWidth=Math.max(1.5,r*.3);ctx.beginPath();ctx.moveTo(px-sw,py+r*.55);ctx.lineTo(px-sw*.3,py+r*1.3);ctx.moveTo(px+sw,py+r*.55);ctx.lineTo(px+sw*.3,py+r*1.3);ctx.stroke()}
   // capture flashes
   S.flashes=S.flashes.filter(f=>S.t-f.t<2.5);
   for(const f of S.flashes){const a=1-(S.t-f.t)/2.5,x=X(f.x),y=G.laneY(f.lane);
     if(S.t-f.t<.25){ctx.fillStyle=`rgba(255,255,255,${.6*(1-(S.t-f.t)/.25)})`;ctx.beginPath();ctx.arc(x,y,laneH,0,7);ctx.fill()}
     ctx.globalAlpha=a;pill(`PLATE ${f.plate} CAPTURED`,x+X(8),y+laneH*.15,'#ffcf5a',G.fs*.82,'left');ctx.globalAlpha=1}
+  if(S.env.night){ctx.fillStyle='rgba(3,7,16,.52)';ctx.fillRect(0,0,W,H);ctx.save();ctx.globalCompositeOperation='lighter';
+    for(const v of S.veh){const cx=X(v.x),cy=G.laneY(v.lane),L=v.v>2?X(34):X(14),d=v.dir;const gg=ctx.createLinearGradient(cx,0,cx+d*L,0);gg.addColorStop(0,'rgba(255,240,200,.5)');gg.addColorStop(1,'rgba(255,240,200,0)');
+      ctx.fillStyle=gg;ctx.beginPath();ctx.moveTo(cx+d*X(2),cy-3);ctx.lineTo(cx+d*L,cy-laneH*.5);ctx.lineTo(cx+d*L,cy+laneH*.5);ctx.lineTo(cx+d*X(2),cy+3);ctx.fill()}
+    for(const site of S.sites)for(const seg of site.segs){const c=LED[seg.state],cx=X(site.x),cy=G.laneY(seg.lane),gr=ctx.createRadialGradient(cx,cy,0,cx,cy,laneH*1.2);gr.addColorStop(0,c+'88');gr.addColorStop(1,c+'00');ctx.fillStyle=gr;ctx.fillRect(cx-laneH*1.2,cy-laneH*1.2,laneH*2.4,laneH*2.4)}
+    ctx.restore()}
   // scale bar & status
   const sb=50*G.sx,bx=12,by=H-10;ctx.fillStyle='rgba(11,16,19,.75)';rr(ctx,bx-6,by-18,sb+64,24,4);ctx.fill();
   ctx.strokeStyle='#d6dcdf';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(bx,by-7);ctx.lineTo(bx,by-2);ctx.lineTo(bx+sb,by-2);ctx.lineTo(bx+sb,by-7);ctx.stroke();
@@ -708,7 +821,7 @@ const xs=$('xs'),xc=xs.getContext('2d');
 let focus={site:null,seg:null};
 function pickFocus(){
   let f=null;
-  for(const site of S.sites)for(const seg of site.segs){if(!f&&(seg.active||seg.state==='JAMMED'||seg.state==='WAIT'||seg.state==='FROZEN'))f={site,seg}}
+  for(const site of S.sites)for(const seg of site.segs){if(!f&&(seg.active||['JAMMED','WAIT','FROZEN','UNAVAIL','SENSOR','MAINT','LOCKED','STUCK'].includes(seg.state)))f={site,seg}}
   if(!f)for(const site of S.sites)for(const seg of site.segs){if(!f&&seg.state!=='RAISED')f={site,seg}}
   if(!f)f={site:S.sites[0],seg:S.sites[0].segs[0]};focus=f;
 }
@@ -782,7 +895,7 @@ $('hBox').addEventListener('pointermove',e=>{const r=hc.getBoundingClientRect();
 $('hBox').addEventListener('pointerleave',()=>{hHover=null;$('hTip').hidden=true;if(!playing)hChart()});
 
 /* ================= live panels ================= */
-const STATE_UI={RAISED:['Raised','p-raised'],LOWERING:['Lowering','p-move'],FLAT:['Flush · holding','p-flat'],WAIT:['Lower held','p-hold'],HOLD:['Flush · awaiting clear','p-flat'],RAISING:['Raising','p-move'],FROZEN:['Frozen · vehicle in zone','p-bad'],FAILSAFE:['Failsafe raised','p-bad'],JAMMED:['Jammed · locked','p-bad']};
+const STATE_UI={RAISED:['Raised','p-raised'],LOWERING:['Lowering','p-move'],FLAT:['Flush · holding','p-flat'],WAIT:['Lower held','p-hold'],HOLD:['Flush · awaiting clear','p-flat'],RAISING:['Raising','p-move'],FROZEN:['Frozen · vehicle in zone','p-bad'],FAILSAFE:['Failsafe raised','p-bad'],JAMMED:['Jammed · locked','p-bad'],UNAVAIL:['Unavailable · flooded','p-bad'],SENSOR:['Frozen · sensors disagree','p-bad'],MAINT:['Maintenance lockout','p-hold'],LOCKED:['Locked by operations','p-hold'],STUCK:['Stuck flush','p-bad']};
 const statePill=seg=>{const [t,c]=STATE_UI[seg.state];return`<span class="pill ${c}">${t}</span>`};
 function incidentHTML(){
   const inc=sc.inc;
@@ -953,7 +1066,7 @@ function frame(now){
   }
   requestAnimationFrame(frame);
 }
-window.RPConsole={load:id=>{load(id);setPlaying(true);try{history.replaceState(null,'','#live')}catch(_){}show('live')},show};
+window.RPConsole={load:id=>{load(id);setPlaying(true);try{history.replaceState(null,'','#live')}catch(_){}show('live')},show,scenarios:()=>SC.map(x=>({id:x.id,dur:x.dur})),run:(id,sec)=>{load(id);setPlaying(false);for(let i=0;i<Math.round(sec*60);i++)step(1/60);return{em:S.em,act:S.act,rej:S.rej,flat:S.flatCiv,civ:S.civ.length,log:S.log.slice().reverse().map(e=>e.t.toFixed(1)+' '+e.msg)}}};
 load('emergency');
 show((location.hash||'').slice(1)||'live');
 if(matchMedia('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<60*10;i++)step(1/60);setPlaying(false);panels();draw();xsDraw();hChart()}
@@ -1082,40 +1195,40 @@ const GROUPS = { E: ['Emergency operations', '#f2b632'], C: ['Civilians and vuln
 const UC = [
  ['E1', 'Single emergency vehicle on an active call', 'Delay and patient jolt', 'Dispatch geofence plus V2X or siren (two of three); lower before the vehicle enters the braking zone', [54.3935, 24.4945], 'Approach to Cleveland Clinic Abu Dhabi', 'emergency'],
  ['E2', 'Convoy of two or more vehicles', 'Unit rises between them, in front of the second vehicle', 'Hold flush while any credentialed vehicle is inside the window; raise only after the last one clears', [54.405, 24.5155], 'Sheikh Khalifa Bin Zayed St, Saadiyat to Maryah', 'convoy'],
- ['E3', 'Vehicle arrives faster than planned', 'Unit still moving when the vehicle arrives', 'Detection distance from live speed; if the window is missed keep raised and warn the crew in the cab', [54.44, 24.426], 'Slip road near Zayed Military Hospital', null],
+ ['E3', 'Vehicle arrives faster than planned', 'Unit still moving when the vehicle arrives', 'Detection distance from live speed; if the window is missed keep raised and warn the crew in the cab', [54.44, 24.426], 'Slip road near Zayed Military Hospital', 'fast'],
  ['E4', 'Emergency vehicle in the opposite lane', 'Wrong segment lowers', 'Per-lane, per-direction actuation from vehicle heading', [54.38, 24.469], 'Dual carriageway near Sheikh Khalifa Medical City', 'opposite'],
- ['E5', 'Ambulance overtakes queued traffic in the opposite lane', 'Raised segment in its actual path', 'Actuate the segment the vehicle is physically in, from GPS position and heading', [54.456, 24.4195], 'Airport Rd near Mediclinic', null],
+ ['E5', 'Ambulance overtakes queued traffic in the opposite lane', 'Raised segment in its actual path', 'Actuate the segment the vehicle is physically in, from GPS position and heading', [54.456, 24.4195], 'Airport Rd near Mediclinic', 'overtake'],
  ['E6', 'Short approach, turning in from a side street', 'No time to lower', 'Route-based geofence from dispatch so lowering starts before the turn', [54.37, 24.464], 'Al Manhal side streets', null],
- ['E7', 'Vehicle returning to station without lights', 'Needless actuation', 'Dispatch status decides: only en route and patient-on-board trigger', [54.3645, 24.4595], 'Outside Civil Defence Al Zaab', null],
- ['E8', 'Unplanned police pursuit, no dispatch record', 'No trigger', 'V2X credential plus siren is enough (two of three)', [54.4, 24.47], 'Sheikh Zayed Bin Sultan St', null],
- ['E9', 'Traffic queued on the unit when an ambulance approaches', 'Cannot lower under vehicles', 'Wait for a clear zone and tell the crew over V2X that the unit is blocked', [54.396, 24.459], 'Near Burjeel Hospital', null],
+ ['E7', 'Vehicle returning to station without lights', 'Needless actuation', 'Dispatch status decides: only en route and patient-on-board trigger', [54.3645, 24.4595], 'Outside Civil Defence Al Zaab', 'returning'],
+ ['E8', 'Unplanned police pursuit, no dispatch record', 'No trigger', 'V2X credential plus siren is enough (two of three)', [54.4, 24.47], 'Sheikh Zayed Bin Sultan St', 'pursuit'],
+ ['E9', 'Traffic queued on the unit when an ambulance approaches', 'Cannot lower under vehicles', 'Wait for a clear zone and tell the crew over V2X that the unit is blocked', [54.396, 24.459], 'Near Burjeel Hospital', 'queue'],
  ['C1', 'Car tailgates the emergency vehicle', 'Unit rises under the car (the Edinburgh bollard case)', 'Never move while a vehicle is in the zone; let it cross flush and log it', [54.42, 24.525], 'Saadiyat access road', 'tailgate'],
- ['C2', 'Vehicle broken down or parked on the unit', 'Unit cannot move', 'Lock in place, alert operations, flag to dispatch for rerouting', [54.51, 24.415], 'E20 corridor, Sas Al Nakhl', null],
- ['C3', 'Pedestrian crossing on a raised table', 'Moving plate under a foot', 'Camera or LiDAR presence detection across the full table; freeze if anyone is on it', [54.403, 24.4355], 'Al Mushrif children\'s centre crossing', null],
- ['C4', 'Cyclist or motorcyclist', 'Fall on a part-raised edge', 'Never stop part-way while traffic is near; cap the gap between segments', [54.349, 24.483], 'Corniche cycle track', null],
+ ['C2', 'Vehicle broken down or parked on the unit', 'Unit cannot move', 'Lock in place, alert operations, flag to dispatch for rerouting', [54.51, 24.415], 'E20 corridor, Sas Al Nakhl', 'broken'],
+ ['C3', 'Pedestrian crossing on a raised table', 'Moving plate under a foot', 'Camera or LiDAR presence detection across the full table; freeze if anyone is on it', [54.403, 24.4355], 'Al Mushrif children\'s centre crossing', 'pedestrian'],
+ ['C4', 'Cyclist or motorcyclist', 'Fall on a part-raised edge', 'Never stop part-way while traffic is near; cap the gap between segments', [54.349, 24.483], 'Corniche cycle track', 'cyclist'],
  ['C5', 'Bus or heavy truck in normal service', 'Passenger discomfort, axle damage', 'Bus-route profile with lower height or longer ramp', [54.365, 24.489], 'Bus corridor, Al Danah', null],
  ['C6', 'Vehicle reversing over the unit', 'Unexpected direction', 'Presence sensing covers both directions', [54.43, 24.4235], 'Ambulance bay, Zayed Military Hospital', null],
  ['C7', 'Driver stops on the unit to give way', 'Blocks lowering', 'Advance warning lights tell drivers not to stop on the unit', [54.378, 24.478], 'Junction near Civil Defence HQ', null],
  ['S1', 'Aftermarket siren on a private car', 'False trigger', 'Siren alone never triggers', [54.603, 24.4925], 'Yas Island', 'falsealarm'],
  ['S2', 'Cloned RFID tag or forged V2X message', 'Unauthorised lowering', 'Signed messages with rotating certificates; cross-check the dispatch record; alert police', [54.564, 24.444], 'Al Sammaliyyah', 'security'],
- ['S3', 'Replay of a recorded valid message', 'Unauthorised lowering', 'Timestamps and one-time counters in every message', [54.505, 24.426], 'Sas Al Nakhl', null],
- ['S4', 'Attack on the central platform commanding mass actuation', 'City-wide disruption', 'Edge controller refuses any command its own sensors do not support', [54.377, 24.473], 'Operations centre, Al Danah', null],
+ ['S3', 'Replay of a recorded valid message', 'Unauthorised lowering', 'Timestamps and one-time counters in every message', [54.505, 24.426], 'Sas Al Nakhl', 'replay'],
+ ['S4', 'Attack on the central platform commanding mass actuation', 'City-wide disruption', 'Edge controller refuses any command its own sensors do not support', [54.377, 24.473], 'Operations centre, Al Danah', 'attack'],
  ['S5', 'Criminal vehicle follows an ambulance to escape', 'Exploits the flush unit', 'Camera captures every civilian vehicle crossing flush; evidence goes to the police platform', [54.415, 24.434], 'Al Saadah', 'tailgate'],
  ['S6', 'Vandalism or tampering with the cabinet', 'Unit disabled', 'Tamper sensor, alarm, failsafe raised', [54.5, 24.406], 'Rabdan', null],
- ['N1', 'Road surface above 60 °C', 'Seal and fluid failure', 'Heat-rated seals and electronics; prefer electromechanical drive', [54.49, 24.365], 'Mussafah industrial road', null],
- ['N2', 'Sand and dust ingress', 'Jammed mechanism', 'Sealed housing, wiper seals, a nightly self-test that detects rising motor current', [54.6, 24.39], 'Khalifa City desert edge', null],
- ['N3', 'Flash flood fills the pit', 'Mechanism under water', 'Water-level sensor; report unavailable to dispatch; stay raised', [54.6, 24.335], 'Low ground near Mafraq', null],
+ ['N1', 'Road surface above 60 °C', 'Seal and fluid failure', 'Heat-rated seals and electronics; prefer electromechanical drive', [54.49, 24.365], 'Mussafah industrial road', 'sand'],
+ ['N2', 'Sand and dust ingress', 'Jammed mechanism', 'Sealed housing, wiper seals, a nightly self-test that detects rising motor current', [54.6, 24.39], 'Khalifa City desert edge', 'sand'],
+ ['N3', 'Flash flood fills the pit', 'Mechanism under water', 'Water-level sensor; report unavailable to dispatch; stay raised', [54.6, 24.335], 'Low ground near Mafraq', 'flood'],
  ['N4', 'Oil or diesel spill on the plates', 'Skid', 'Anti-skid plate surface; slip alarm from wet-surface sensor', [54.47, 24.35], 'Mussafah truck road', null],
- ['N5', 'Night, fog, sandstorm', 'Unit not seen', 'Embedded LED markers showing state', [54.53, 24.46], 'Airport-Yas highway', null],
+ ['N5', 'Night, fog, sandstorm', 'Unit not seen', 'Embedded LED markers showing state', [54.53, 24.46], 'Airport-Yas highway', 'night'],
  ['H1', 'Grid power loss', 'No actuation', 'Battery backup; failsafe raised when the battery is low', [54.5025, 24.3985], 'Near Danat Al Emarat Hospital', 'power'],
  ['H2', 'Controller fault', 'Unknown state', 'Spring failsafe to raised; maintenance alarm', [54.539, 24.3565], 'Near Burjeel Medical City', 'power'],
  ['H3', 'Link to platform lost', 'No dispatch trigger', 'Edge still acts on V2X plus siren', [54.572, 24.4135], 'Khalifa City', 'security'],
  ['H4', 'Actuator jams part-way', 'A step in the road, the most dangerous state', 'Lock, flash warning lights, broadcast an in-cab warning, alert maintenance', [54.434, 24.4185], 'Al Rawdah', 'jam'],
- ['H5', 'Stuck flush', 'Calming lost', 'Temporary warning signs, alert, priority repair', [54.4635, 24.4145], 'Airport Rd, Al Rawdah', null],
- ['H6', 'Sensors disagree', 'Wrong decision', 'Freeze and alarm; never act on a single sensor', [54.392, 24.4575], 'Al Nahyan', null],
- ['O1', 'Planned event or marathon', 'Runners over moving plates', 'Event mode locks units flush or raised from the operations centre', [54.358, 24.495], 'Corniche', null],
- ['O2', 'Evacuation or major incident', 'Calming slows mass movement', 'One command lowers every unit on evacuation routes', [54.384, 24.449], 'Sheikh Zayed Bridge approach', null],
- ['O3', 'Road works or resurfacing', 'Damage to the unit', 'Maintenance mode with lockout', [54.4, 24.5], 'Real roadworks from TomTom', null],
+ ['H5', 'Stuck flush', 'Calming lost', 'Temporary warning signs, alert, priority repair', [54.4635, 24.4145], 'Airport Rd, Al Rawdah', 'stuck'],
+ ['H6', 'Sensors disagree', 'Wrong decision', 'Freeze and alarm; never act on a single sensor', [54.392, 24.4575], 'Al Nahyan', 'sensors'],
+ ['O1', 'Planned event or marathon', 'Runners over moving plates', 'Event mode locks units flush or raised from the operations centre', [54.358, 24.495], 'Corniche', 'event'],
+ ['O2', 'Evacuation or major incident', 'Calming slows mass movement', 'One command lowers every unit on evacuation routes', [54.384, 24.449], 'Sheikh Zayed Bridge approach', 'evac'],
+ ['O3', 'Road works or resurfacing', 'Damage to the unit', 'Maintenance mode with lockout', [54.4, 24.5], 'Real roadworks from TomTom', 'maint'],
  ['O4', 'Insurance claim or complaint', 'No evidence', 'Event log with video clip for every actuation and every flush crossing', [54.371, 24.4745], 'Operations centre records', null],
 ];
 

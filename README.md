@@ -17,7 +17,7 @@ Rejections with a forged credential, a wrong device key or a replay set `alert: 
 
 `index.html` is one self-contained page with everything in it:
 
-- **Live, Units, Incidents, Analytics, Alarms, Settings**: the operations console and its speed-breaker simulator.
+- **Live, Units, Incidents, Analytics, Alarms, Settings**: the operations console and its speed-breaker simulator, now with 28 scripted scenarios covering 31 of the 37 use cases (queues, broken-down vehicles, pedestrians, cyclists, replay and platform attacks, flood, sand and heat, night, stuck flush, sensor disagreement, event, evacuation and maintenance modes).
 - **Map**: a 3D Abu Dhabi map (MapLibre and OpenFreeMap) with hospitals, civil defence stations, traffic jams, closures and roadworks, 3D delay towers, OpenStreetMap speed bumps, and all 37 use cases placed as data points. Each use-case popup shows the risk, the solution, real data found near the point, and a button that opens the matching scripted scenario in Live. The corridor planner routes between a station and a hospital, counts the speed bumps on the way, and can run a RapidPass corridor: a vehicle drives the route and the pass engine verifies it at every bump.
 - **Passes**: the signed-pass system running in the browser with WebCrypto: open an incident, issue a pass, simulate valid, replayed, forged or wrong-key messages, and read the hash-chained audit log.
 
