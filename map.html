@@ -59,7 +59,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--panel2)}
       <label for="key">TomTom API key (turns on live traffic)</label>
       <input type="password" id="key" placeholder="paste key" autocomplete="off">
       <div class="row"><button class="primary" id="keySave">Use key</button><button id="keyClear">Remove key</button><button id="refresh">Refresh now</button></div>
-      <div class="note" style="margin-top:6px">Free key at developer.tomtom.com. It is saved only in this browser. Restrict it to this site's address in your TomTom dashboard, because anything in a web page can be read by visitors.</div>
+      <div class="note" style="margin-top:6px">The key is saved only in this browser. You can also open this page once as map.html#key=YOUR_KEY and it is stored for you. Restrict the key to this site's address in the TomTom dashboard.</div>
       <div class="note err" id="err"></div>
     </div>
 
@@ -107,7 +107,10 @@ const STYLES = { light: 'https://tiles.openfreemap.org/styles/liberty', dark: 'h
 const TT = 'https://api.tomtom.com';
 const MAG_COLOR = { major: '#ff3b30', moderate: '#ff8a3d', minor: '#f2b632', unknown: '#c9a227' };
 
-const S = { key: store.get('rp.tomtom') || '', snap: null, inc: [], incLive: false, updated: null, bumps: null, bumpsErr: '', flow: {}, route: null, styleName: 'light', pitch: 58, layers: { flow: false, inc: true, towers: true, places: true, bumps: true, b3d: true } };
+// A key can be supplied once through the link (map.html#key=...). It is saved in this browser only and never committed.
+try { const m = location.hash.match(/[#&]key=([^&]+)/); if (m) { store.set('rp.tomtom', decodeURIComponent(m[1])); history.replaceState(null, '', location.pathname + location.search); } } catch {}
+const storedKey = store.get('rp.tomtom');
+const S = { key: storedKey || '', snap: null, inc: [], incLive: false, updated: null, bumps: null, bumpsErr: '', flow: {}, route: null, styleName: 'light', pitch: 58, layers: { flow: false, inc: true, towers: true, places: true, bumps: true, b3d: true } };
 let map;
 
 /* ---------------- geometry helpers ---------------- */
