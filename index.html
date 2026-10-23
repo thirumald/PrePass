@@ -1,151 +1,838 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RapidPass</title>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>RapidPass Operations Console</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-:root{--bg:#0e1316;--panel:#151c20;--line:#26323a;--fg:#e4ecef;--muted:#8c9ca5;--amber:#f2b632;--teal:#38c6b2;--red:#ff5d52;color-scheme:dark}
+/* Layout: operations-console shell — top status bar, icon rail, view area. Live view = street render + telemetry rail. Single dark control-room look by choice. */
+:root{
+  --bg:#0b1013; --panel:#121a1f; --panel2:#18222880; --raise:#1a242a; --line:#24313a; --line2:#30404a;
+  --fg:#e3ebee; --muted:#8b9ba4; --dim:#5f6f78;
+  --amber:#f2b632; --teal:#38c6b2; --blue:#6f8ef0; --red:#ff5d52; --ok:#4fd18b;
+  --s1:#b98618; --s2:#00977f; --s3:#6f8ef0;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,sans-serif;padding:16px;max-width:1100px;margin-inline:auto}
-h1{font-size:22px;letter-spacing:.05em;text-transform:uppercase;margin:0 0 4px}h1 span{color:var(--amber)}
-.sub{color:var(--muted);margin:0 0 16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
-h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
-label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
-input,select,button{font:inherit;color:inherit;background:#1b2429;border:1px solid var(--line);border-radius:6px;padding:6px 9px}
-input,select{width:100%}
-button{cursor:pointer}button:hover{border-color:var(--muted)}
-.row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.inc{border-top:1px solid var(--line);padding:8px 0}
-.pill{display:inline-block;border:1px solid;border-radius:10px;padding:0 8px;font-size:12px}
-.ok{color:var(--teal)}.bad{color:var(--red)}.warn{color:var(--amber)}
-pre{margin:0;white-space:pre-wrap;word-break:break-all;font:12px ui-monospace,monospace;color:var(--muted);max-height:260px;overflow:auto}
-#verdict{font:600 15px ui-monospace,monospace;margin-top:10px;min-height:22px}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.45}
+button,select,input{font:inherit;color:inherit}
+.app{min-height:100%;display:grid;grid-template-columns:76px minmax(0,1fr);grid-template-rows:auto 1fr}
+.top{grid-column:1/-1;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);background:#0e1519}
+.brand{display:flex;align-items:center;gap:10px}
+.brand b{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:.03em;line-height:1}
+.brand small{display:block;color:var(--muted);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase}
+.zone{color:var(--muted);font-size:13px;border-left:1px solid var(--line);padding-left:16px}
+.zone strong{color:var(--fg);font-weight:500}
+.topright{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;font-size:12px;border:1px solid var(--line2);background:var(--raise);white-space:nowrap}
+.badge i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.badge.sim{border-color:rgba(242,182,50,.5);color:var(--amber)} .badge.sim i{background:var(--amber)}
+.clock{font-family:var(--mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.avatar{width:30px;height:30px;border-radius:50%;background:#26343c;display:grid;place-items:center;font-size:12px;font-weight:600}
+.rail{border-right:1px solid var(--line);background:#0e1519;display:flex;flex-direction:column;gap:4px;padding:10px 8px;padding-left:max(8px,env(safe-area-inset-left,0px))}
+.nav{display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 4px;border-radius:8px;border:0;background:none;color:var(--muted);font-size:11px;cursor:pointer;position:relative}
+.nav svg{width:21px;height:21px}
+.nav:hover{color:var(--fg);background:var(--raise)}
+.nav[aria-current="page"]{color:var(--fg);background:var(--raise)}
+.nav[aria-current="page"]::before{content:"";position:absolute;left:-8px;top:10px;bottom:10px;width:3px;border-radius:2px;background:var(--amber)}
+.nav .cnt{position:absolute;top:4px;right:8px;background:var(--red);color:#fff;font-size:10px;border-radius:8px;padding:0 5px;line-height:15px}
+main{min-width:0;padding-block:14px 28px;padding-left:16px;padding-right:max(16px,env(safe-area-inset-right,0px))}
+@media (max-width:760px){
+  .app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr auto}
+  .rail{grid-row:3;flex-direction:row;justify-content:space-around;border-right:0;border-top:1px solid var(--line);position:sticky;bottom:0;padding-block:6px calc(6px + env(safe-area-inset-bottom,0px));padding-right:max(8px,env(safe-area-inset-right,0px));z-index:5}
+  .nav{font-size:10px;padding:6px 2px}
+  .nav[aria-current="page"]::before{left:12px;right:12px;top:-6px;bottom:auto;width:auto;height:3px}
+  main{padding-left:max(16px,env(safe-area-inset-left,0px))}
+  .zone{border-left:0;padding-left:0}
+}
+.view[hidden]{display:none!important}
+h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.03em;margin:0;text-wrap:balance}
+.vhead{display:flex;align-items:flex-end;justify-content:space-between;gap:10px 20px;flex-wrap:wrap;margin-bottom:12px}
+.vhead p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.card h3{font-family:var(--display);font-size:14.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.demo{font-family:var(--body);font-size:11px;letter-spacing:.02em;text-transform:none;color:var(--amber);border:1px solid rgba(242,182,50,.4);border-radius:999px;padding:1px 8px;font-weight:500}
+/* live */
+.live{display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:12px;align-items:start}
+@media (max-width:1180px){.live{grid-template-columns:minmax(0,1fr)}}
+.lcol{display:flex;flex-direction:column;gap:12px;min-width:0}
+.scenebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.scenebar .ttl{font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:.03em;margin-right:auto}
+.sel{background:var(--raise);border:1px solid var(--line2);border-radius:7px;padding:6px 10px;max-width:100%}
+.btn{background:var(--raise);border:1px solid var(--line2);border-radius:7px;padding:6px 11px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--muted)}
+.btn.on{border-color:var(--amber);color:var(--amber)}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:#14110a;font-weight:600}
+.btn:focus-visible,.nav:focus-visible,.sel:focus-visible,input:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.stage{position:relative;width:100%;aspect-ratio:2.35/1;max-width:100%;border-radius:8px;overflow:hidden;background:#2a2a24;border:1px solid var(--line)}
+.stage:fullscreen{aspect-ratio:auto;width:100vw;height:100vh;border:0;border-radius:0}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%}
+.hud{position:absolute;left:10px;right:10px;top:8px;display:flex;justify-content:space-between;gap:8px;pointer-events:none;font-family:var(--mono);font-size:12px}
+.hud span{background:rgba(11,16,19,.8);padding:3px 8px;border-radius:4px;font-variant-numeric:tabular-nums}
+.rec{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);margin-right:6px;vertical-align:1px;animation:blink 1.2s steps(2) infinite}
+.paused .rec{animation:none;background:var(--muted)}
+@keyframes blink{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.rec{animation:none}}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-2px}
+.duo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+@media (max-width:860px){.duo{grid-template-columns:minmax(0,1fr)}}
+.cbox{position:relative;width:100%;height:220px}
+.cbox canvas{position:absolute;inset:0;width:100%;height:100%}
+.tip{position:absolute;pointer-events:none;background:#0b1013;border:1px solid var(--line2);border-radius:6px;padding:6px 8px;font-size:12px;white-space:nowrap;z-index:3;font-variant-numeric:tabular-nums}
+.tip b{font-weight:600}
+.lgd{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.lgd span{display:inline-flex;align-items:center;gap:6px}
+.lgd i{width:14px;height:3px;border-radius:2px}
+.rcol{display:flex;flex-direction:column;gap:12px;min-width:0}
+.inc{display:flex;flex-direction:column;gap:8px}
+.inc .id{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.inc .ty{font-family:var(--display);font-size:22px;font-weight:600;line-height:1.1}
+.prio{display:inline-block;background:rgba(255,93,82,.14);color:#ff8a82;border:1px solid rgba(255,93,82,.45);border-radius:999px;padding:1px 8px;font-size:12px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-variant-numeric:tabular-nums}
+.route{display:flex;gap:6px;flex-wrap:wrap}
+.chips{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.chip{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:12.5px;background:#151f24}
+.chip b{width:9px;height:9px;border-radius:50%;background:#34424a;flex:0 0 auto}
+.chip.on b{background:var(--teal);box-shadow:0 0 7px var(--teal)}
+.chip.warn b{background:var(--amber);box-shadow:0 0 7px var(--amber)}
+.chip.bad b{background:var(--red);box-shadow:0 0 7px var(--red)}
+.hint{font-size:11.5px;color:var(--muted);margin-top:8px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{white-space:nowrap;padding:8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;vertical-align:middle}
+.tbl tr:hover td{background:#141e23}
+.mono{font-family:var(--mono);font-size:12.5px}
+.scroll{overflow-x:auto}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border-radius:999px;font-size:12px;border:1px solid;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-raised{color:var(--amber);border-color:rgba(242,182,50,.45)}
+.p-flat{color:var(--teal);border-color:rgba(56,198,178,.45)}
+.p-move{color:var(--blue);border-color:rgba(111,142,240,.5)}
+.p-hold{color:var(--fg);border-color:var(--line2)}
+.p-bad{color:var(--red);border-color:rgba(255,93,82,.5)}
+.p-ok{color:var(--ok);border-color:rgba(79,209,139,.45)}
+.mbar{height:6px;background:#26323a;border-radius:3px;overflow:hidden;width:40px;display:inline-block;vertical-align:middle;margin-right:6px}
+.mbar i{display:block;height:100%;background:var(--amber)}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kpi{background:#151f24;border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+.kpi .v{font-family:var(--display);font-size:26px;font-weight:600;line-height:1.05;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:11.5px;color:var(--muted)}
+.log{list-style:none;margin:0;padding:0;max-height:300px;overflow-y:auto;font-family:var(--mono);font-size:11.5px;display:flex;flex-direction:column;gap:6px}
+.log li{display:grid;grid-template-columns:50px 1fr;gap:6px}
+.log li span{color:var(--muted)}
+.log li.warn{color:var(--amber)} .log li.em{color:var(--teal)} .log li.bad{color:var(--red)}
+/* other views */
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+@media (max-width:980px){.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.big .v{font-size:34px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.alarm{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:#141d22}
+.alarm .sev{width:10px;height:10px;border-radius:2px}
+.alarm .t{font-size:13.5px} .alarm .m{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.alarm.acked{opacity:.55}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:860px){.form{grid-template-columns:minmax(0,1fr)}}
+.field{display:flex;flex-direction:column;gap:6px;background:#141d22;border:1px solid var(--line);border-radius:8px;padding:12px}
+.field label{font-weight:500}
+.field .d{font-size:12px;color:var(--muted)}
+.field .row{display:flex;align-items:center;gap:10px}
+.field input[type=range]{flex:1;accent-color:var(--amber)}
+.field output{font-family:var(--mono);min-width:64px;text-align:right}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:7px;overflow:hidden}
+.seg button{background:none;border:0;padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--amber);color:#14110a;font-weight:600}
+.actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.toast{color:var(--ok);font-size:13px}
 </style>
-</head>
-<body>
-<h1>Rapid<span>Pass</span></h1>
-<p class="sub">Priority passes for emergency vehicles. Dispatch status decides; the edge verifies signature, counter and status. This page runs the whole system in your browser (nothing is sent anywhere). Source and Node server: <a href="https://github.com/thirumald/RapidPass" style="color:var(--teal)">github.com/thirumald/RapidPass</a>.</p>
-<div class="grid">
-  <div class="card">
-    <h2>1 · Open incident</h2>
-    <label for="itype">Type</label><select id="itype"><option>medical</option><option>fire</option><option>police</option></select>
-    <label for="iloc">Location</label><input id="iloc" placeholder="Corniche Rd, Abu Dhabi">
-    <div class="row"><button id="newInc">Open incident</button></div>
-  </div>
-  <div class="card">
-    <h2>2 · Issue pass</h2>
-    <label for="pinc">Incident</label><select id="pinc"></select>
-    <label for="pplate">Plate</label><input id="pplate" value="H 8919">
-    <label for="pagency">Agency</label><input id="pagency" value="EMS">
-    <div class="row"><button id="issue">Issue pass</button></div>
-  </div>
-  <div class="card">
-    <h2>3 · Simulate vehicle at roadside unit</h2>
-    <label for="splate">Plate</label><input id="splate" value="H 8919">
-    <div class="row">
-      <button data-mode="valid">Valid message</button>
-      <button data-mode="replay">Replay it</button>
-      <button data-mode="forged">Forged credential</button>
-      <button data-mode="wrongkey">Wrong device key</button>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="1" y="1" width="32" height="32" rx="8" fill="#1a242a" stroke="#30404a"/><path d="M6 22h22" stroke="#e3ebee" stroke-width="2"/><path d="M11 22q6-9 12 0" fill="#f2b632"/><path d="M8 13l4 0M22 13l4 0" stroke="#38c6b2" stroke-width="2" stroke-linecap="round"/></svg>
+      <div><b>RapidPass</b><small>Operations Console</small></div>
     </div>
-    <div id="verdict"></div>
-  </div>
+    <div class="zone">Corridor <strong id="zoneName">Hospital Road</strong></div>
+    <div class="topright">
+      <span class="badge sim" title="No live units connected; the console is driven by the built-in simulator"><i></i>Simulation mode</span>
+      <span class="badge"><i></i><span id="unitsOnline">Units online</span></span>
+      <span class="clock" id="wall">--:--:--</span>
+      <span class="avatar" aria-label="Operator">OP</span>
+    </div>
+  </header>
+
+  <nav class="rail" aria-label="Sections">
+    <button class="nav" data-view="live" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 12h18M8 9h1M14 15h2"/></svg>Live</button>
+    <button class="nav" data-view="units" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17h18"/><path d="M7 17q5-8 10 0"/><circle cx="19" cy="7" r="2"/></svg>Units</button>
+    <button class="nav" data-view="incidents" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="8" width="13" height="8" rx="1.5"/><path d="M16 11h3l2 3v2h-5"/><circle cx="7" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/><path d="M9.5 10v4M7.5 12h4"/></svg>Incidents</button>
+    <button class="nav" data-view="analytics" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Analytics</button>
+    <button class="nav" data-view="alarms" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4z"/><path d="M10 20h4"/></svg>Alarms<span class="cnt" id="alarmCnt" hidden>0</span></button>
+    <button class="nav" data-view="settings" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Settings</button>
+  </nav>
+
+  <main>
+    <!-- LIVE -->
+    <section class="view" id="v-live">
+      <div class="live">
+        <div class="lcol">
+          <div class="card">
+            <div class="scenebar">
+              <span class="ttl" id="sceneTitle">Hospital Road · Unit S1</span>
+              <label class="sr" for="scenario" style="font-size:12px;color:var(--muted)">Scenario</label>
+              <select class="sel" id="scenario"></select>
+              <button class="btn" id="play" type="button">Pause</button>
+              <button class="btn" id="restart" type="button">Restart</button>
+              <span class="seg" role="group" aria-label="Playback speed"><button type="button" data-speed="0.5" aria-pressed="false">0.5×</button><button type="button" data-speed="1" aria-pressed="true">1×</button><button type="button" data-speed="2" aria-pressed="false">2×</button></span>
+              <button class="btn" id="full" type="button">Full screen</button>
+            </div>
+            <div class="stage" id="stage">
+              <canvas id="cv" role="img" aria-label="Top-down street view of the corridor with speed breaker units and traffic"></canvas>
+              <div class="hud"><span id="hudL"><span class="rec"></span>SIM · Camera overview</span><span id="hudR">T+0.0 s</span></div>
+            </div>
+            <div class="legend">
+              <span><i style="background:var(--amber)"></i>Unit raised</span>
+              <span><i style="background:#454f55"></i>Unit flush</span>
+              <span><i style="background:rgba(56,198,178,.45)"></i>Active geofence</span>
+              <span><i style="background:var(--blue)"></i>LED: emergency passage</span>
+              <span><i style="background:var(--red)"></i>LED: do not follow</span>
+              <span>Distances and speeds to scale; vehicles drawn larger for legibility.</span>
+            </div>
+          </div>
+          <div class="duo">
+            <div class="card"><h3>Unit cross-section <span class="mono" id="xsName" style="letter-spacing:0;text-transform:none">S1 EB</span></h3><div class="cbox"><canvas id="xs" role="img" aria-label="Side view of the speed breaker plate and actuators"></canvas></div></div>
+            <div class="card"><h3>Unit height · last 30 s</h3><div class="lgd" id="hLgd"></div><div class="cbox" id="hBox"><canvas id="hc" role="img" aria-label="Line chart of unit height in millimetres over the last 30 seconds"></canvas><div class="tip" id="hTip" hidden></div></div></div>
+          </div>
+        </div>
+        <div class="rcol">
+          <div class="card"><h3>Active incident</h3><div id="incident"></div></div>
+          <div class="card"><h3>Outcome</h3><div class="kpis" id="kpis"></div></div>
+          <div class="card"><h3>Trigger signals <span class="mono" id="focusName" style="letter-spacing:0;text-transform:none">S1 EB</span></h3><div class="chips" id="chips"></div><div class="hint" id="ruleHint"></div></div>
+          <div class="card"><h3>Lane segments</h3><div class="scroll"><table class="tbl"><thead><tr><th>Unit</th><th>State</th><th>Height</th></tr></thead><tbody id="segs"></tbody></table></div></div>
+          <div class="card"><h3>Controller log</h3><ul class="log" id="log"></ul></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- UNITS -->
+    <section class="view" id="v-units" hidden>
+      <div class="vhead"><div><h2 class="vt">Units</h2><p>Every installed unit, its lane segments and health. Hospital Road units show live state from the simulator.</p></div></div>
+      <div class="card"><h3>Fleet <span class="demo">Health figures are demo data</span></h3><div class="scroll"><table class="tbl"><thead><tr><th>Unit</th><th>Location</th><th>EB segment</th><th>WB segment</th><th>Health</th><th>Battery</th><th>Enclosure</th><th>Cycles 24 h</th><th>Last self-test</th><th>Firmware</th></tr></thead><tbody id="fleet"></tbody></table></div></div>
+    </section>
+
+    <!-- INCIDENTS -->
+    <section class="view" id="v-incidents" hidden>
+      <div class="vhead"><div><h2 class="vt">Incidents</h2><p>Dispatch incidents that used the corridor today. The top row follows the running scenario.</p></div></div>
+      <div class="card"><h3>Today <span class="demo">Earlier rows are demo data</span></h3><div class="scroll"><table class="tbl"><thead><tr><th>Incident</th><th>Time</th><th>Type</th><th>Priority</th><th>Vehicle</th><th>Units on route</th><th>Seconds saved</th><th>Status</th></tr></thead><tbody id="incTbl"></tbody></table></div></div>
+    </section>
+
+    <!-- ANALYTICS -->
+    <section class="view" id="v-analytics" hidden>
+      <div class="vhead"><div><h2 class="vt">Analytics</h2><p>Last 14 days across all units.</p></div><span class="demo">Demo data until units are connected</span></div>
+      <div class="grid4">
+        <div class="kpi big"><div class="v">214</div><div class="l">Emergency passages</div></div>
+        <div class="kpi big"><div class="v">8.1 s</div><div class="l">Average time saved per unit crossed</div></div>
+        <div class="kpi big"><div class="v">17 km/h</div><div class="l">Average civilian speed over raised units</div></div>
+        <div class="kpi big"><div class="v">99.6%</div><div class="l">Unit availability</div></div>
+      </div>
+      <div class="duo">
+        <div class="card"><h3>Emergency passages per day</h3><div class="cbox" id="aBox"><canvas id="ac" role="img" aria-label="Bar chart of emergency passages per day over 14 days"></canvas><div class="tip" id="aTip" hidden></div></div></div>
+        <div class="card"><h3>Civilian crossing speed over raised units</h3><div class="cbox" id="bBox"><canvas id="bc" role="img" aria-label="Histogram of civilian crossing speeds in km/h"></canvas><div class="tip" id="bTip" hidden></div></div></div>
+      </div>
+    </section>
+
+    <!-- ALARMS -->
+    <section class="view" id="v-alarms" hidden>
+      <div class="vhead"><div><h2 class="vt">Alarms</h2><p>Faults, rejected credentials and safety holds that need an operator. New alarms from the running scenario appear at the top.</p></div><button class="btn" id="ackAll" type="button">Acknowledge all</button></div>
+      <div class="stack" id="alarms"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="v-settings" hidden>
+      <div class="vhead"><div><h2 class="vt">Controller settings</h2><p>Parameters pushed to every unit's edge controller. Applying restarts the running scenario with the new values.</p></div></div>
+      <div class="form" id="form"></div>
+      <div class="actions"><button class="btn primary" id="apply" type="button">Apply to units</button><button class="btn" id="defaults" type="button">Restore defaults</button><span class="toast" id="toast" hidden>Applied. Scenario restarted with new settings.</span></div>
+    </section>
+  </main>
 </div>
-<div class="grid" style="margin-top:12px">
-  <div class="card"><h2>Incidents</h2><div id="incs"></div></div>
-  <div class="card"><h2>Audit log <span id="chain" class="pill"></span></h2><pre id="audit"></pre></div>
-</div>
+
 <script>
-/* In-browser RapidPass: same rules as src/rapidpass.js, using WebCrypto Ed25519 instead of node:crypto. */
-const enc=new TextEncoder(),b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
-const canon=v=>Array.isArray(v)?'['+v.map(canon).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canon(v[k])).join(',')+'}':JSON.stringify(v);
-const ED={name:'Ed25519'};
-const newKey=async()=>{const k=await crypto.subtle.generateKey(ED,true,['sign','verify']);return{...k,pub:b64(await crypto.subtle.exportKey('spki',k.publicKey))}};
-const sig=async(o,priv)=>b64(await crypto.subtle.sign(ED,priv,enc.encode(canon(o))));
-const ver=async(o,s,pub)=>{try{return await crypto.subtle.verify(ED,pub,unb64(s),enc.encode(canon(o)))}catch{return false}};
-const pubOf=s=>crypto.subtle.importKey('spki',unb64(s),ED,true,['verify']);
-const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',enc.encode(s)))].map(x=>x.toString(16).padStart(2,'0')).join('');
-const PRIORITY=new Set(['enroute','patient']),STATUSES=['enroute','patient','returning','available'];
-class Err extends Error{}
-const S={authority:null,incidents:new Map(),revoked:new Set(),seq:0,audit:[],sim:new Map(),attacker:null};
-async function audit(type,data){const prev=S.audit.length?S.audit[S.audit.length-1].hash:'GENESIS';const body={seq:S.audit.length+1,ts:new Date().toISOString(),type,data};S.audit.push({...body,prev,hash:await sha(prev+canon(body))})}
-async function chain(){let prev='GENESIS';for(const e of S.audit){const{prev:p,hash,...body}=e;if(p!==prev||await sha(prev+canon(body))!==hash)return{ok:false,brokenAt:e.seq};prev=hash}return{ok:true,length:S.audit.length}}
-const view=i=>({id:i.id,type:i.type,location:i.location,active:i.active,vehicles:[...i.vehicles.values()].map(v=>({plate:v.plate,agency:v.agency,cls:v.cls,status:v.status,kid:v.credential.kid,revoked:S.revoked.has(v.credential.kid)}))});
-const active=id=>{const i=S.incidents.get(id);if(!i)throw new Err('incident not found');if(!i.active)throw new Err('incident is closed');return i};
-async function decide(m){
-  if(!m||!m.cred||typeof m.ctr!=='number'||typeof m.ts!=='number')return{ok:false,reason:'MALFORMED',alert:false};
-  const{sig:cs,...cred}=m.cred;
-  if(!await ver(cred,cs,S.authority.publicKey))return{ok:false,reason:'BAD_CREDENTIAL_SIGNATURE',alert:true};
-  const t=Date.now();
-  if(t<cred.nbf||t>cred.exp)return{ok:false,reason:'CREDENTIAL_EXPIRED',alert:false};
-  if(S.revoked.has(cred.kid))return{ok:false,reason:'CREDENTIAL_REVOKED',alert:false};
-  const inc=S.incidents.get(cred.incident),v=inc&&inc.vehicles.get(cred.plate);
-  if(!inc||!inc.active||!v)return{ok:false,reason:'NOT_DISPATCHED',alert:false};
-  if(!PRIORITY.has(v.status))return{ok:false,reason:'STATUS_NOT_PRIORITY',alert:false};
-  const body={plate:m.plate,incident:m.incident,ctr:m.ctr,ts:m.ts};
-  if(m.plate!==cred.plate||m.incident!==cred.incident||!await ver(body,m.sig,await pubOf(cred.devicePub)))return{ok:false,reason:'BAD_MESSAGE_SIGNATURE',alert:true};
-  if(Math.abs(t-m.ts)>5000)return{ok:false,reason:'STALE_MESSAGE',alert:false};
-  if(m.ctr<=v.lastCtr)return{ok:false,reason:'REPLAY',alert:true};
-  v.lastCtr=m.ctr;return{ok:true,reason:'OK',alert:false};
-}
-async function verify(m,site='S1 EB'){const r=await decide(m);await audit(r.ok?'VERIFY_ACCEPTED':'VERIFY_REJECTED',{site,plate:m&&m.plate||null,reason:r.reason,alert:r.alert});return r}
-const message=async(cred,priv,ctr,ts)=>{const body={plate:cred.plate,incident:cred.incident,ctr,ts};return{cred,...body,sig:await sig(body,priv)}};
-async function route(p,b){
-  if(!S.authority)S.authority=await newKey();
-  let m;
-  if(p==='/api/incidents'&&b===undefined)return[...S.incidents.values()].map(view);
-  b=b||{};
-  if(p==='/api/incidents'){const id='INC-'+(2401+S.seq++);const i={id,type:b.type||'medical',location:b.location||'',active:true,vehicles:new Map()};S.incidents.set(id,i);await audit('INCIDENT_OPENED',{id,type:i.type,location:i.location});return view(i)}
-  if(m=p.match(/^\/api\/incidents\/([^/]+)\/vehicles$/)){
-    const i=active(m[1]);if(!b.plate)throw new Err('plate is required');if(i.vehicles.has(b.plate))throw new Err('vehicle already has a pass on this incident');
-    const dev=await newKey(),t=Date.now(),c={v:1,kid:i.id+':'+b.plate,plate:b.plate,agency:b.agency||'unknown',cls:b.cls||'ambulance',incident:i.id,devicePub:dev.pub,nbf:t,exp:t+7200000};
-    const credential={...c,sig:await sig(c,S.authority.privateKey)};
-    i.vehicles.set(b.plate,{plate:b.plate,agency:c.agency,cls:c.cls,status:'enroute',credential,lastCtr:0});
-    S.sim.set(b.plate,{credential,key:dev.privateKey,ctr:0,last:null});await audit('PASS_ISSUED',{incident:i.id,plate:b.plate,agency:c.agency,kid:c.kid});return{credential}}
-  if(m=p.match(/^\/api\/incidents\/([^/]+)\/status$/)){const i=active(m[1]),v=i.vehicles.get(b.plate);if(!v)throw new Err('vehicle not on this incident');if(!STATUSES.includes(b.status))throw new Err('bad status');v.status=b.status;await audit('STATUS_CHANGED',{incident:i.id,plate:b.plate,status:b.status});return view(i)}
-  if(m=p.match(/^\/api\/incidents\/([^/]+)\/close$/)){const i=active(m[1]);i.active=false;i.vehicles.forEach(v=>S.revoked.add(v.credential.kid));await audit('INCIDENT_CLOSED',{id:i.id,revoked:i.vehicles.size});return view(i)}
-  if(p==='/api/simulate'){
-    const s=S.sim.get(b.plate);if(!s)throw new Err('unknown plate; issue a pass first');let msg;
-    if(b.mode==='valid'){msg=await message(s.credential,s.key,++s.ctr,Date.now());s.last=msg}
-    else if(b.mode==='replay'){if(!s.last)throw new Err('send a valid message first, then replay it');msg=s.last}
-    else if(b.mode==='forged')msg=await message({...s.credential,cls:'fire'},s.key,++s.ctr,Date.now());
-    else if(b.mode==='wrongkey'){S.attacker=S.attacker||(await newKey()).privateKey;msg=await message(s.credential,S.attacker,++s.ctr,Date.now())}
-    else throw new Err('unknown mode');
-    return{mode:b.mode,...await verify(msg)}}
-  if(p==='/api/audit')return{chain:await chain(),entries:S.audit.slice(-200).reverse()};
-  throw new Err('not found');
-}
-if(!(window.crypto&&crypto.subtle))document.body.insertAdjacentHTML('afterbegin','<p style="color:#ff5d52">This browser has no WebCrypto. Open the page over https in a current browser.</p>');
-crypto.subtle&&crypto.subtle.generateKey(ED,true,['sign']).catch(()=>document.body.insertAdjacentHTML('afterbegin','<p style="color:#ff5d52">This browser does not support Ed25519 in WebCrypto. Use a current Chrome, Edge, Firefox or Safari 17+.</p>'));
-</script>
-<script>
+(()=>{
+/* ================= configuration ================= */
+const DEF={geofence:120,v2x:150,acoustic:130,lowerT:2.2,raiseT:3,clearT:1,buffer:25,need:2,leds:true,enforce:true};
+let cfg={...DEF};
+try{const s=JSON.parse(localStorage.getItem('rp-cfg')||'null');if(s)cfg={...DEF,...s}}catch(_){}
+const kmh=v=>v/3.6;
+const TYPES={
+  car:{len:4.5,color:'#9db2c0',acc:2.6,name:'Car',w:.42},
+  suv:{len:5,color:'#cfc6b0',acc:2.4,name:'SUV',w:.45},
+  van:{len:5.8,color:'#d9dee0',acc:2.0,name:'Van',w:.47},
+  amb:{len:6.6,color:'#f3f5f6',acc:3.0,name:'Ambulance',w:.5},
+  fire:{len:9.5,color:'#c9362e',acc:2.2,name:'Fire truck',w:.54}
+};
+const EMV={dispatch:true,tag:true,siren:true,hw:1.2};
+const SC=[
+ {id:'normal',name:'Normal calming',dur:24,len:220,sites:[140],
+  spawns:[{t:0,type:'car',lane:0,kmh:50},{t:0.5,type:'suv',lane:1,kmh:50},{t:3,type:'van',lane:0,kmh:45},{t:4.5,type:'car',lane:1,kmh:55},{t:7,type:'car',lane:0,kmh:60},{t:9,type:'suv',lane:1,kmh:50},{t:11,type:'car',lane:0,kmh:50},{t:13,type:'car',lane:1,kmh:45}]},
+ {id:'emergency',name:'Emergency passage',dur:27,len:220,sites:[140],inc:{id:'INC-26-10482',type:'Cardiac arrest',prio:'P1 · patient en route'},
+  spawns:[{t:0,type:'car',lane:1,kmh:50},{t:2,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:5,type:'suv',lane:1,kmh:50},{t:10,type:'car',lane:0,kmh:50},{t:13,type:'van',lane:0,kmh:50}]},
+ {id:'tailgate',name:'Tailgating & enforcement',dur:28,len:220,sites:[140],inc:{id:'INC-26-10483',type:'Road traffic collision',prio:'P1'},
+  spawns:[{t:2,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A07'},{t:2.62,type:'car',lane:0,kmh:80,hw:0.45,label:'Tailgating car'},{t:13,type:'car',lane:0,kmh:50},{t:1,type:'car',lane:1,kmh:50},{t:8,type:'suv',lane:1,kmh:50}]},
+ {id:'convoy',name:'Convoy',dur:28,len:220,sites:[140],inc:{id:'INC-26-10484',type:'Building fire, persons reported',prio:'P1'},
+  spawns:[{t:1,type:'car',lane:1,kmh:50},{t:2,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A03'},{t:4.6,type:'fire',lane:0,kmh:75,...EMV,label:'Fire truck F21'},{t:7,type:'suv',lane:1,kmh:50},{t:15,type:'car',lane:0,kmh:50}]},
+ {id:'opposite',name:'Opposite lane',dur:24,len:220,sites:[140],inc:{id:'INC-26-10485',type:'Gas leak',prio:'P2'},
+  spawns:[{t:0,type:'car',lane:0,kmh:50},{t:2,type:'fire',lane:1,kmh:70,...EMV,label:'Fire truck F14'},{t:3,type:'suv',lane:0,kmh:50},{t:6,type:'car',lane:0,kmh:55},{t:12,type:'car',lane:1,kmh:50}]},
+ {id:'falsealarm',name:'Aftermarket siren',dur:22,len:220,sites:[140],
+  spawns:[{t:0,type:'car',lane:1,kmh:50},{t:2,type:'car',lane:0,kmh:65,siren:true,hw:1.5,label:'Car with aftermarket siren',color:'#77899a'},{t:7,type:'suv',lane:0,kmh:50},{t:9,type:'car',lane:1,kmh:50}]},
+ {id:'security',name:'Link loss & cloned tag',dur:30,len:220,sites:[140],inc:{id:'INC-26-10486',type:'Stroke',prio:'P1 · patient on board'},
+  events:[{t:1,run:S=>{S.link=false;log('Platform link lost — edge controller continues on V2X + siren','warn',true)}}],
+  spawns:[{t:0,type:'car',lane:1,kmh:50},{t:2,type:'car',lane:0,kmh:60,tag:true,forged:true,hw:1.5,label:'Car with cloned tag',color:'#77899a'},{t:6,type:'suv',lane:1,kmh:50},{t:13.5,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'}]},
+ {id:'jam',name:'Actuator jam',dur:26,len:220,sites:[140],inc:{id:'INC-26-10487',type:'Breathing difficulty',prio:'P1'},
+  events:[{t:5,run:S=>{S.sites[0].segs[0].jam=true}}],
+  spawns:[{t:0,type:'car',lane:1,kmh:50},{t:2,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A09'},{t:6,type:'suv',lane:1,kmh:50},{t:11,type:'car',lane:0,kmh:50}]},
+ {id:'power',name:'Power loss & failsafe',dur:36,len:220,sites:[140],inc:{id:'INC-26-10488',type:'Fall from height',prio:'P1'},
+  events:[{t:3,run:S=>{S.power='battery';log('Grid supply lost — controller running on battery backup','warn',true)}},{t:17,run:S=>{S.power='fault';log('Controller fault detected — maintenance crew dispatched','bad',true)}}],
+  spawns:[{t:1,type:'car',lane:1,kmh:50},{t:5,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:9,type:'suv',lane:1,kmh:50},{t:19,type:'fire',lane:0,kmh:70,...EMV,label:'Fire truck F21'},{t:21,type:'car',lane:1,kmh:50}]},
+ {id:'corridor',name:'Green corridor (3 units + signal)',dur:31,len:520,sites:[100,210,320],signal:{x:430,lane:0},inc:{id:'INC-26-10489',type:'Cardiac arrest',prio:'P1 · patient on board'},
+  spawns:[{t:0,type:'car',lane:0,kmh:50,x:420,v0:0},{t:0,type:'suv',lane:0,kmh:50,x:398,v0:0},{t:1,type:'car',lane:1,kmh:50},{t:2,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:7,type:'suv',lane:1,kmh:50},{t:14,type:'car',lane:1,kmh:50}]}
+];
+SC.forEach(s=>s.spawns.sort((a,b)=>a.t-b.t));
+
+/* ================= engine ================= */
 const $=id=>document.getElementById(id);
-const api=(p,b)=>route(p,b);
-const esc=s=>String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
-const guard=fn=>async(...a)=>{try{await fn(...a)}catch(e){$('verdict').innerHTML='<span class="bad">'+esc(e.message)+'</span>'}};
-async function refresh(){
-  const incs=await api('/api/incidents');
-  const sel=$('pinc'),cur=sel.value;
-  sel.innerHTML=incs.filter(i=>i.active).map(i=>`<option ${i.id===cur?'selected':''}>${esc(i.id)}</option>`).join('');
-  $('incs').innerHTML=incs.length?incs.slice().reverse().map(i=>`<div class="inc"><b>${esc(i.id)}</b> ${esc(i.type)} ${esc(i.location)}
-    <span class="pill ${i.active?'ok':'warn'}">${i.active?'active':'closed'}</span>
-    ${i.active?`<button data-close="${esc(i.id)}">Close</button>`:''}
-    ${i.vehicles.map(v=>`<div>${esc(v.plate)} · ${esc(v.agency)} · <select data-inc="${esc(i.id)}" data-plate="${esc(v.plate)}" ${i.active?'':'disabled'} style="width:auto">${['enroute','patient','returning','available'].map(s=>`<option ${s===v.status?'selected':''}>${s}</option>`).join('')}</select> ${v.revoked?'<span class="pill bad">revoked</span>':''}</div>`).join('')}</div>`).join(''):'<span class="sub">No incidents yet.</span>';
-  const a=await api('/api/audit');
-  $('chain').textContent=a.chain.ok?'chain ok':'chain BROKEN at '+a.chain.brokenAt;$('chain').className='pill '+(a.chain.ok?'ok':'bad');
-  $('audit').textContent=a.entries.map(e=>`#${e.seq} ${e.type} ${JSON.stringify(e.data)}`).join('\n');
+let sc,S,playing=true,speed=1,endHold=0,logDirty=true,alarmsDirty=true;
+const alarmLog=[];let alarmSeq=0;
+function log(msg,kind='',alarm=false){S.log.unshift({t:S.t,msg,kind});if(S.log.length>80)S.log.pop();logDirty=true;
+  if(alarm||kind==='bad'||(kind==='warn'&&/rejected|captured|held|jammed|lost|stopped/i.test(msg))){alarmLog.unshift({id:++alarmSeq,at:new Date(),msg,kind,acked:false,src:sc.name});alarmsDirty=true}}
+function reset(){
+  S={t:0,veh:[],spI:0,evI:0,power:'grid',link:true,light:sc.signal?'red':null,preT:0,log:[],act:0,rej:0,civ:[],em:null,emLabel:'',flatCiv:0,nid:1,hist:[],histT:0,flashes:[],emSeen:false,emDone:false,
+    sites:sc.sites.map((x,i)=>({x,name:'S'+(i+1),segs:[0,1].map(l=>({lane:l,h:1,state:'RAISED',mode:null,clearT:0,sig:{},cycles:0}))}))};
+  endHold=0;logDirty=true;
+  log('Scenario start — all units raised, power on grid, platform link up');
 }
-$('newInc').onclick=guard(async()=>{await api('/api/incidents',{type:$('itype').value,location:$('iloc').value});await refresh()});
-$('issue').onclick=guard(async()=>{await api(`/api/incidents/${$('pinc').value}/vehicles`,{plate:$('pplate').value,agency:$('pagency').value});$('splate').value=$('pplate').value;await refresh()});
-document.querySelector('[data-mode]').parentElement.addEventListener('click',guard(async e=>{const b=e.target.closest('[data-mode]');if(!b)return;
-  const r=await api('/api/simulate',{plate:$('splate').value,mode:b.dataset.mode});
-  $('verdict').innerHTML=`<span class="${r.ok?'ok':'bad'}">${r.ok?'ACCEPTED':'REJECTED'} · ${esc(r.reason)}</span>${r.alert?' <span class="warn">· police alerted</span>':''}`;await refresh()}));
-$('incs').addEventListener('click',guard(async e=>{const c=e.target.closest('[data-close]');if(c){await api(`/api/incidents/${c.dataset.close}/close`,{});await refresh()}}));
-$('incs').addEventListener('change',guard(async e=>{const s=e.target.closest('select[data-plate]');if(s){await api(`/api/incidents/${s.dataset.inc}/status`,{plate:s.dataset.plate,status:s.value});await refresh()}}));
-guard(refresh)();
+const segName=(site,seg)=>site.name+' '+(seg.lane===0?'EB':'WB');
+const distTo=(v,x)=>(x-v.x)*v.dir-v.len/2;
+function spawn(sp){
+  const T=TYPES[sp.type],dir=sp.lane===0?1:-1,x=sp.x??(sp.lane===0?-12:sc.len+12);
+  if(S.veh.some(o=>o.lane===sp.lane&&Math.abs(o.x-x)<(o.len+T.len)/2+3))return false;
+  const id=S.nid++;
+  S.veh.push({id,type:sp.type,lane:sp.lane,dir,x,len:T.len,w:T.w,color:sp.color||T.color,acc:T.acc,cruise:kmh(sp.kmh),v:sp.v0??kmh(sp.kmh),hw:sp.hw||1.5,brake:false,
+    dispatch:!!sp.dispatch,tag:!!sp.tag,siren:!!sp.siren,forged:!!sp.forged,em:!!(sp.dispatch||sp.tag)&&!sp.forged,label:sp.label||T.name,
+    plate:`${1+id*3%9}-${String(10000+(id*7919)%89999)}`,prev:{}});
+  return true;
+}
+function control(site,seg,dt){
+  const lane=seg.lane,inLane=S.veh.filter(v=>v.lane===lane);
+  let disp=false,v2x=null;
+  for(const v of inLane){const d=distTo(v,site.x);
+    if(v.dispatch&&S.link&&d<=cfg.geofence&&d>=-(v.len+3))disp=true;
+    if(v.tag&&d<=cfg.v2x&&d>=-(v.len+3)){
+      if(v.forged){if(!v.forgeLogged){v.forgeLogged=true;S.rej++;log(`${segName(site,seg)}: V2X signature invalid (${v.label}, plate ${v.plate}) — rejected, alert sent to police`,'bad')}}
+      else v2x=v}}
+  const acoustic=S.veh.some(v=>v.siren&&Math.abs(v.x-site.x)<cfg.acoustic);
+  const onTop=inLane.some(v=>{const d=distTo(v,site.x);return d<=2&&d>=-(v.len+2)});
+  const approach=inLane.some(v=>{const d=distTo(v,site.x);return d<=cfg.buffer&&d>=-(v.len+3)});
+  const powered=S.power!=='fault';
+  const conf=(disp?1:0)+(v2x?1:0)+(acoustic?1:0);
+  const cred=powered&&(disp||!!v2x);
+  const auth=cred&&conf>=cfg.need;
+  seg.sig={disp:powered&&disp,v2x:powered&&!!v2x,acoustic,clear:!approach,conf};seg.v2xVeh=powered?v2x:null;seg.active=cred;
+  if(powered&&acoustic&&!disp&&!v2x){
+    const near=S.veh.filter(v=>v.em&&Math.abs(v.x-site.x)<cfg.acoustic);
+    if(!near.length){if(!site.rejLogged){site.rejLogged=true;S.rej++;log(`${site.name}: siren heard, no dispatch incident or V2X credential — request rejected, unit stays raised`,'warn')}}
+    else if(!seg.oppLogged&&near.some(v=>v.lane!==lane)&&!near.some(v=>v.lane===lane)){seg.oppLogged=true;log(`${segName(site,seg)}: siren from the opposite lane — this segment stays raised`)}
+  }else if(!acoustic){seg.oppLogged=false;site.rejLogged=false}
+  const prev=seg.state;let st=prev;
+  if(seg.jam){st='JAMMED'}
+  else if(!powered){if(seg.h<1&&!onTop)seg.h=Math.min(1,seg.h+dt/1.5);st='FAILSAFE'}
+  else if(auth||(seg.mode==='em'&&cred)){
+    seg.mode='em';seg.clearT=0;
+    if(seg.h>0){if(onTop&&prev!=='LOWERING')st='WAIT';else{seg.h=Math.max(0,seg.h-dt/cfg.lowerT);st='LOWERING'}}
+    if(seg.h<=0)st='FLAT';
+  }else if(seg.h<1){
+    if(approach){seg.clearT=0;st=(prev==='RAISING'||prev==='FROZEN')?'FROZEN':'HOLD'}
+    else{seg.clearT+=dt;if(seg.clearT>=cfg.clearT){seg.h=Math.min(1,seg.h+dt/cfg.raiseT);st='RAISING'}else st=prev==='FROZEN'?'FROZEN':'HOLD'}
+    if(seg.h>=1){st='RAISED';seg.mode=null}
+  }else{st='RAISED';seg.mode=null}
+  if(st!==prev){seg.state=st;const n=segName(site,seg);
+    const why=[seg.sig.disp&&'dispatch geofence',seg.sig.v2x&&'V2X',acoustic&&'siren'].filter(Boolean).join(' + ');
+    const M={LOWERING:[`${n}: lowering — ${why} confirmed (${conf}/3)`,'em'],WAIT:[`${n}: lower request held, vehicle on the unit`,'warn'],
+      FLAT:[`${n}: flush with road surface${cfg.leds?', LEDs blue':''}`,'em'],HOLD:[`${n}: emergency vehicle clear — waiting for empty zone${cfg.leds?', LEDs red: do not follow':''}`,''],
+      FROZEN:[`${n}: vehicle entered zone while raising — movement stopped`,'warn'],RAISING:[`${n}: zone clear ${cfg.clearT} s — raising`,''],
+      RAISED:[`${n}: raised, calming restored`,''],FAILSAFE:[`${n}: spring failsafe holds unit raised, triggers ignored`,'bad'],
+      JAMMED:[`${n}: actuator jammed at ${Math.round(seg.h*75)} mm — unit locked, warning lights on, in-cab warning sent to approaching crews`,'bad']};
+    if(st==='LOWERING')S.act++;
+    if(st==='RAISED'&&prev==='RAISING')seg.cycles++;
+    if(M[st]&&!(st==='RAISED'&&prev==='FAILSAFE'))log(M[st][0],M[st][1]);
+  }
+}
+function signalCtl(dt){
+  const g=sc.signal;if(!g)return;
+  const near=S.veh.some(v=>v.dispatch&&v.lane===g.lane&&(()=>{const d=distTo(v,g.x);return d<=320&&d>=-(v.len+3)})());
+  if(near&&S.light!=='green'){S.light='green';S.preT=0;log('Signal pre-emption: eastbound green for approaching ambulance','em')}
+  else if(!near&&S.light==='green'){S.preT+=dt;if(S.preT>4){S.light='red';log('Pre-emption released — signal returns to normal plan')}}
+}
+function drive(v,dt){
+  let des=v.cruise;
+  for(const site of S.sites){const seg=site.segs[v.lane],d=distTo(v,site.x);
+    if(seg.h>0.15&&d<=(v.em?45:60)&&d>=-v.len)des=Math.min(des,4.2+Math.max(0,d)*0.32)}
+  const g=sc.signal;
+  if(g&&g.lane===v.lane&&S.light==='red'){const ds=(g.x-3-v.x)*v.dir-v.len/2;if(ds>=-0.5&&ds<45)des=Math.min(des,Math.max(0,ds*0.6))}
+  let best=1e9,lead=null;
+  for(const o of S.veh){if(o===v||o.lane!==v.lane)continue;const gap=(o.x-v.x)*v.dir-(o.len+v.len)/2;if(gap>-1&&gap<best){best=gap;lead=o}}
+  if(lead)des=Math.min(des,Math.max(0,(best-2.5)/v.hw));
+  const pv=v.v;
+  v.v+=Math.max(-7.5*dt,Math.min(v.acc*dt,des-v.v));if(v.v<0)v.v=0;
+  if(lead&&best<0.6)v.v=Math.min(v.v,lead.v);
+  v.brake=(pv-v.v)/dt>1.0||v.v<0.3;
+  v.x+=v.v*dt*v.dir;
+  if(v.em)S.emSeen=true;
+  S.sites.forEach((site,i)=>{const s=(v.x-site.x)*v.dir;const p=v.prev[i];v.prev[i]=s;
+    if(p!==undefined&&p<0&&s>=0){const h=site.segs[v.lane].h,k=Math.round(v.v*3.6);
+      if(v.em){S.em=k;S.emLabel=v.label;log(`${v.label} crossed ${site.name} at ${k} km/h — ${h<0.1?'surface flush, no braking':'unit raised'}`,h<0.1?'em':'bad')}
+      else if(h>0.5)S.civ.push(k);
+      else{S.flatCiv++;
+        if(cfg.enforce){S.flashes.push({x:site.x,lane:v.lane,t:S.t,plate:v.plate});log(`${v.label} crossed ${site.name} flush behind emergency vehicle — plate ${v.plate} captured, evidence sent to police platform`,'warn')}
+        else log(`${v.label} crossed ${site.name} flush behind emergency vehicle — accepted, no actuation under traffic`,'warn')}}});
+}
+function step(dt){
+  S.t+=dt;
+  const ev=sc.events||[];while(S.evI<ev.length&&ev[S.evI].t<=S.t){ev[S.evI].run(S);S.evI++}
+  while(S.spI<sc.spawns.length&&sc.spawns[S.spI].t<=S.t){if(!spawn(sc.spawns[S.spI]))break;S.spI++}
+  for(const site of S.sites)for(const seg of site.segs)control(site,seg,dt);
+  signalCtl(dt);
+  for(const v of S.veh)drive(v,dt);
+  S.veh=S.veh.filter(v=>v.x>-30&&v.x<sc.len+30);
+  if(S.emSeen&&!S.emDone&&!S.veh.some(v=>v.em))S.emDone=true;
+  S.histT+=dt;if(S.histT>=0.1){S.histT=0;S.hist.push({t:S.t,h:chartSeries().map(r=>r.seg.h)});while(S.hist.length&&S.hist[0].t<S.t-30)S.hist.shift()}
+}
+function chartSeries(){
+  if(S.sites.length>1)return S.sites.map(site=>({seg:site.segs[0],name:segName(site,site.segs[0])}));
+  const s=S.sites[0];return s.segs.map(seg=>({seg,name:segName(s,seg)}));
+}
+
+/* ================= scene rendering ================= */
+const cv=$('cv'),ctx=cv.getContext('2d'),stage=$('stage');
+let G={},bgc=null,stripe=null,dpr=1;
+function rr(c,x,y,w,h,r){c.beginPath();if(c.roundRect)c.roundRect(x,y,w,h,r);else c.rect(x,y,w,h)}
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function geom(){
+  const r=stage.getBoundingClientRect();const W=r.width,H=r.height;
+  const roadT=H*0.34,roadB=H*0.66,laneH=(roadB-roadT)/2;
+  const sx=W/sc.len,k=2.3*Math.sqrt(sc.len/220);
+  G={W,H,roadT,roadB,laneH,sx,k,walkT:H*0.25,walkB:H*0.75,X:m=>m*sx,laneY:l=>l===1?roadT+laneH/2:roadT+laneH*1.5,fs:Math.max(11.5,Math.min(15,W/72))};
+}
+function resize(){
+  geom();if(!G.W)return;
+  dpr=Math.min(3,(window.devicePixelRatio||1)*1.5);
+  cv.width=Math.round(G.W*dpr);cv.height=Math.round(G.H*dpr);
+  const pc=document.createElement('canvas');pc.width=pc.height=14;const pg=pc.getContext('2d');
+  pg.fillStyle='#161616';pg.fillRect(0,0,14,14);pg.strokeStyle='#f2b632';pg.lineWidth=4.5;pg.beginPath();for(let i=-14;i<=28;i+=9.5){pg.moveTo(i,0);pg.lineTo(i+14,14)}pg.stroke();
+  stripe=ctx.createPattern(pc,'repeat');
+  buildBG();draw();xsDraw();hChart();
+}
+function buildBG(){
+  const {W,H,roadT,roadB,laneH,walkT,walkB,X}=G;
+  bgc=document.createElement('canvas');bgc.width=cv.width;bgc.height=cv.height;const g=bgc.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+  const R=rng(sc.len*13+7);
+  // sand base + speckle
+  g.fillStyle='#4a4334';g.fillRect(0,0,W,H);
+  for(let i=0;i<W*H/90;i++){g.fillStyle=R()<.5?'rgba(255,240,210,.06)':'rgba(0,0,0,.08)';g.fillRect(R()*W,R()*H,1.2,1.2)}
+  // buildings
+  const roofs=['#57524a','#5f594d','#4c5154','#625b4f','#535759','#6a6253'];
+  const blocks=(y0,y1,south)=>{let x=-20;while(x<W){const w=(70+R()*120)*Math.max(.6,W/1100),gap=8+R()*16;const top=y0+R()*8,bot=y1-R()*6;
+    g.fillStyle='rgba(0,0,0,.32)';g.fillRect(x+7,top+7,w,bot-top);
+    g.fillStyle=roofs[Math.floor(R()*roofs.length)];g.fillRect(x,top,w,bot-top);
+    g.strokeStyle='rgba(255,255,255,.08)';g.lineWidth=1;g.strokeRect(x+3.5,top+3.5,w-7,bot-top-7);
+    const n=1+Math.floor(R()*4);for(let j=0;j<n;j++){const aw=8+R()*12,ah=6+R()*8,ax=x+8+R()*(w-aw-16),ay=top+8+R()*Math.max(1,bot-top-ah-16);
+      g.fillStyle='rgba(0,0,0,.3)';g.fillRect(ax+2,ay+2,aw,ah);g.fillStyle='#8b8f8f';g.fillRect(ax,ay,aw,ah);g.fillStyle='#6f7373';g.beginPath();g.arc(ax+aw/2,ay+ah/2,Math.min(aw,ah)*.3,0,7);g.fill()}
+    if(R()<.3){g.fillStyle='#2f4a5c';g.globalAlpha=.55;const pw=Math.min(w-20,40),ph=Math.min(bot-top-20,18);g.fillRect(x+10,top+10,pw,ph);g.globalAlpha=1}
+    x+=w+gap}};
+  blocks(4,walkT-10,false);blocks(walkB+10,H-4,true);
+  // sidewalks
+  const walk=(y0,y1)=>{g.fillStyle='#5b5953';g.fillRect(0,y0,W,y1-y0);g.strokeStyle='rgba(0,0,0,.12)';g.lineWidth=1;
+    for(let x=0;x<W;x+=16){g.beginPath();g.moveTo(x,y0);g.lineTo(x,y1);g.stroke()}for(let y=y0;y<y1;y+=16){g.beginPath();g.moveTo(0,y);g.lineTo(W,y);g.stroke()}};
+  walk(walkT,roadT);walk(roadB,walkB);
+  // asphalt
+  g.fillStyle='#2a2f33';g.fillRect(0,roadT,W,roadB-roadT);
+  for(let i=0;i<W*(roadB-roadT)/40;i++){g.fillStyle=R()<.5?'rgba(255,255,255,.035)':'rgba(0,0,0,.12)';g.fillRect(R()*W,roadT+R()*(roadB-roadT),1.3,1.3)}
+  for(const l of [0,1]){const cy=G.laneY(l);g.fillStyle='rgba(0,0,0,.14)';g.fillRect(0,cy-laneH*.3,W,laneH*.12);g.fillRect(0,cy+laneH*.18,W,laneH*.12)}
+  // curbs
+  const seg=Math.max(6,2*G.sx);for(let x=0,i=0;x<W;x+=seg,i++){g.fillStyle=i%2?'#e9e6dc':'#1c1e1f';g.fillRect(x,roadT-4,seg,4);g.fillRect(x,roadB,seg,4)}
+  // markings
+  g.strokeStyle='rgba(255,255,255,.85)';g.lineWidth=2;g.beginPath();g.moveTo(0,roadT+5);g.lineTo(W,roadT+5);g.moveTo(0,roadB-5);g.lineTo(W,roadB-5);g.stroke();
+  g.strokeStyle='#e3aa2b';g.lineWidth=2;g.beginPath();g.moveTo(0,roadT+laneH-3);g.lineTo(W,roadT+laneH-3);g.moveTo(0,roadT+laneH+3);g.lineTo(W,roadT+laneH+3);g.stroke();
+  // painted arrows and SLOW legends
+  const arrow=(x,y,dir)=>{g.save();g.translate(x,y);if(dir<0)g.rotate(Math.PI);g.fillStyle='rgba(255,255,255,.75)';const s=laneH*.22;
+    g.beginPath();g.moveTo(-s*2,-s*.25);g.lineTo(s*.6,-s*.25);g.lineTo(s*.6,-s*.7);g.lineTo(s*1.6,0);g.lineTo(s*.6,s*.7);g.lineTo(s*.6,s*.25);g.lineTo(-s*2,s*.25);g.closePath();g.fill();g.restore()};
+  arrow(W*.05,G.laneY(0),1);arrow(W*.95,G.laneY(1),-1);
+  for(const x of sc.sites){for(const l of [0,1]){const dir=l===0?1:-1,px=X(x-dir*34),cy=G.laneY(l);
+    g.save();g.translate(px,cy);g.rotate(dir>0?Math.PI/2:-Math.PI/2);g.fillStyle='rgba(255,255,255,.7)';g.font=`700 ${laneH*.26}px Barlow Condensed`;g.textAlign='center';g.textBaseline='middle';g.fillText('SLOW',0,0);g.restore();
+    for(let c=0;c<3;c++){const cx=X(x-dir*(12+c*4));g.strokeStyle='rgba(255,255,255,.55)';g.lineWidth=2;g.beginPath();g.moveTo(cx-dir*5,cy-laneH*.3);g.lineTo(cx+dir*3,cy);g.lineTo(cx-dir*5,cy+laneH*.3);g.stroke()}}}
+  // signal stopline + crossing
+  if(sc.signal){const sxp=X(sc.signal.x-3);g.fillStyle='rgba(255,255,255,.9)';g.fillRect(sxp-2.5,roadT+laneH+5,4,laneH-10);
+    for(let y=roadT+7;y<roadB-7;y+=9){g.fillStyle='rgba(255,255,255,.75)';g.fillRect(X(sc.signal.x)+2,y,X(4),5)}}
+  // palms on top sidewalk, lights on bottom
+  const palm=(x,y,s)=>{g.fillStyle='rgba(0,0,0,.3)';g.beginPath();g.ellipse(x+s*.5,y+s*.55,s*1.05,s*.75,0,0,7);g.fill();
+    for(let i=0;i<9;i++){const a=i/9*Math.PI*2+R()*.3,l=s*(.95+R()*.25);g.strokeStyle=i%2?'#4b7d3d':'#3c6a32';g.lineWidth=s*.32;g.lineCap='round';
+      g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+Math.cos(a)*l*.6,y+Math.sin(a)*l*.6-s*.15,x+Math.cos(a)*l,y+Math.sin(a)*l);g.stroke()}
+    g.fillStyle='#6b5a3e';g.beginPath();g.arc(x,y,s*.18,0,7);g.fill();g.lineCap='butt'};
+  for(let x=30+R()*30;x<W-10;x+=70+R()*40){palm(x,(walkT+roadT)/2,Math.min(14,(roadT-walkT)*.42))}
+  for(let x=60;x<W;x+=150){const y=(roadB+walkB)/2;g.strokeStyle='#9aa0a2';g.lineWidth=2;g.beginPath();g.moveTo(x,y);g.lineTo(x,roadB-laneH*.35);g.stroke();
+    g.fillStyle='#d9dcd2';g.fillRect(x-5,roadB-laneH*.35-3,10,5);g.fillStyle='#3c4144';g.beginPath();g.arc(x,y,3.5,0,7);g.fill()}
+}
+const LED={RAISED:'#f2b632',LOWERING:'#5b8cff',FLAT:'#5b8cff',WAIT:'#f2b632',HOLD:'#ff4a3d',RAISING:'#ff4a3d',FROZEN:'#ff4a3d',FAILSAFE:'#ff4a3d',JAMMED:'#ff4a3d'};
+const LAB={RAISED:'RAISED',LOWERING:'LOWERING',FLAT:'FLUSH',WAIT:'HELD',HOLD:'FLUSH · WAIT',RAISING:'RAISING',FROZEN:'FROZEN',FAILSAFE:'FAILSAFE',JAMMED:'JAMMED'};
+const LABC={RAISED:'#f2b632',FLAT:'#38c6b2',HOLD:'#38c6b2',LOWERING:'#6f8ef0',RAISING:'#6f8ef0',WAIT:'#f2b632',FROZEN:'#ff5d52',FAILSAFE:'#ff5d52',JAMMED:'#ff5d52'};
+function pill(text,x,y,color,fs,align='center'){ctx.font=`500 ${fs}px IBM Plex Mono`;const w=ctx.measureText(text).width+12,h=fs*1.45;const x0=align==='center'?x-w/2:x;
+  rr(ctx,x0,y,w,h,4);ctx.fillStyle='rgba(11,16,19,.88)';ctx.fill();ctx.fillStyle=color;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(text,x0+6,y+h/2+.5)}
+function drawVehicle(v){
+  const {laneH,sx,k,X}=G,cx=X(v.x),cy=G.laneY(v.lane),vw=laneH*v.w,vl=Math.max(v.len*sx*k,vw*1.6);
+  if(v.siren){for(let j=0;j<3;j++){const ph=((S.t*.9+j/3)%1);ctx.beginPath();ctx.arc(cx,cy,vw*.6+ph*laneH*1.7,0,7);ctx.strokeStyle=`rgba(255,93,82,${.32*(1-ph)})`;ctx.lineWidth=1.4;ctx.stroke()}}
+  ctx.save();ctx.translate(cx,cy);if(v.dir<0)ctx.rotate(Math.PI);
+  ctx.fillStyle='rgba(0,0,0,.4)';rr(ctx,-vl/2+3,-vw/2+4,vl,vw,vw*.28);ctx.fill();
+  const gr=ctx.createLinearGradient(0,-vw/2,0,vw/2);gr.addColorStop(0,shade(v.color,-.28));gr.addColorStop(.5,shade(v.color,.08));gr.addColorStop(1,shade(v.color,-.28));
+  ctx.fillStyle=gr;rr(ctx,-vl/2,-vw/2,vl,vw,vw*.28);ctx.fill();ctx.strokeStyle='rgba(0,0,0,.45)';ctx.lineWidth=1;ctx.stroke();
+  // mirrors
+  ctx.fillStyle=shade(v.color,-.35);const mx=v.type==='fire'?vl*.33:v.type==='amb'?vl*.22:vl*.14;ctx.fillRect(mx,-vw/2-2.5,3,2.5);ctx.fillRect(mx,vw/2,3,2.5);
+  if(v.type==='amb'){
+    ctx.fillStyle='rgba(25,35,45,.85)';rr(ctx,vl*.3,-vw*.4,vl*.1,vw*.8,2);ctx.fill();
+    ctx.fillStyle='#e8ebed';ctx.fillRect(-vl*.48,-vw*.44,vl*.72,vw*.88);
+    ctx.fillStyle='#d9342b';ctx.fillRect(-vl*.48,-vw*.44,vl*.72,vw*.1);ctx.fillRect(-vl*.48,vw*.34,vl*.72,vw*.1);
+    ctx.fillStyle='#d9342b';ctx.fillRect(-vl*.2,-vw*.07,vl*.24,vw*.14);ctx.fillRect(-vl*.13,-vw*.25,vl*.1,vw*.5);
+    lightbar(vl*.2,vw);
+  }else if(v.type==='fire'){
+    ctx.fillStyle='rgba(25,35,45,.85)';rr(ctx,vl*.38,-vw*.4,vl*.06,vw*.8,2);ctx.fill();
+    ctx.strokeStyle='#b9bec1';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-vl*.46,-vw*.2);ctx.lineTo(vl*.2,-vw*.2);ctx.moveTo(-vl*.46,vw*.2);ctx.lineTo(vl*.2,vw*.2);ctx.stroke();
+    ctx.lineWidth=1.2;for(let x=-vl*.46;x<vl*.2;x+=6){ctx.beginPath();ctx.moveTo(x,-vw*.2);ctx.lineTo(x,vw*.2);ctx.stroke()}
+    ctx.fillStyle='#e7e7e2';ctx.fillRect(vl*.24,-vw*.44,vl*.04,vw*.88);
+    lightbar(vl*.31,vw);
+  }else{
+    ctx.fillStyle='rgba(20,30,40,.82)';ctx.beginPath();ctx.moveTo(vl*.2,-vw*.38);ctx.lineTo(vl*.33,-vw*.42);ctx.lineTo(vl*.33,vw*.42);ctx.lineTo(vl*.2,vw*.38);ctx.closePath();ctx.fill();
+    ctx.fillStyle=shade(v.color,-.08);rr(ctx,-vl*.24,-vw*.36,vl*.44,vw*.72,3);ctx.fill();
+    ctx.fillStyle='rgba(20,30,40,.75)';ctx.fillRect(-vl*.35,-vw*.34,vl*.09,vw*.68);
+    if(v.siren)lightbar(vl*.0,vw);
+  }
+  // lights
+  ctx.fillStyle='#fff6d2';ctx.fillRect(vl/2-2.5,-vw*.38,2.5,vw*.18);ctx.fillRect(vl/2-2.5,vw*.2,2.5,vw*.18);
+  const tl=v.brake?'#ff3a2f':'#7d1c17';ctx.fillStyle=tl;ctx.fillRect(-vl/2,-vw*.38,2.5,vw*.18);ctx.fillRect(-vl/2,vw*.2,2.5,vw*.18);
+  if(v.brake){const gl=ctx.createRadialGradient(-vl/2,0,1,-vl/2,0,vw*.9);gl.addColorStop(0,'rgba(255,50,40,.35)');gl.addColorStop(1,'rgba(255,50,40,0)');ctx.fillStyle=gl;ctx.fillRect(-vl/2-vw,-vw,vw,vw*2)}
+  ctx.restore();
+  const k2=Math.round(v.v*3.6);pill(`${k2} km/h`,cx,cy-vw/2-G.fs*1.7,v.em?'#ffb3ad':(k2<=18?'#f2b632':'#e3ebee'),G.fs*.82);
+  function lightbar(x,vw){const on=Math.floor(S.t*6)%2;ctx.fillStyle='#222';ctx.fillRect(x,-vw*.42,vl*.05,vw*.84);
+    ctx.fillStyle=on?'#ff3b30':'#3b7bff';ctx.fillRect(x+.5,-vw*.4,vl*.05-1,vw*.38);ctx.fillStyle=on?'#3b7bff':'#ff3b30';ctx.fillRect(x+.5,vw*.02,vl*.05-1,vw*.38);
+    if(v.siren){const gx=ctx.createRadialGradient(x,0,1,x,0,vw*1.6);gx.addColorStop(0,on?'rgba(255,60,50,.35)':'rgba(60,120,255,.35)');gx.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gx;ctx.fillRect(x-vw*1.6,-vw*1.6,vw*3.2,vw*3.2)}}
+}
+function shade(hex,p){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;const f=c=>Math.max(0,Math.min(255,Math.round(p<0?c*(1+p):c+(255-c)*p)));return`rgb(${f(r)},${f(g)},${f(b)})`}
+function draw(){
+  if(!S||!G.W||!bgc)return;
+  const {W,H,roadT,roadB,laneH,X,fs,walkB}=G;
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.drawImage(bgc,0,0,W,H);
+  // geofences
+  for(const site of S.sites)for(const seg of site.segs){
+    const dir=seg.lane===0?1:-1,y0=seg.lane===1?roadT+6:roadT+laneH+4,hh=laneH-10,a=X(site.x),b=X(site.x-dir*cfg.geofence);
+    if(seg.active){const gg=ctx.createLinearGradient(b,0,a,0);gg.addColorStop(0,'rgba(56,198,178,.04)');gg.addColorStop(1,'rgba(56,198,178,.26)');ctx.fillStyle=gg;ctx.fillRect(Math.min(a,b),y0,Math.abs(a-b),hh)}
+    ctx.strokeStyle=seg.active?'rgba(56,198,178,.9)':'rgba(255,255,255,.13)';ctx.setLineDash([4,5]);ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(b,y0);ctx.lineTo(b,y0+hh);ctx.stroke();ctx.setLineDash([]);
+    if(seg.active)pill(`${cfg.geofence} m geofence`,b,seg.lane===1?y0+2:y0+hh-fs*1.45-2,'#7fe3d4',fs*.78);
+  }
+  // signal head
+  const sg=sc.signal;
+  if(sg){const px=X(sg.x)+X(5)+6,py=roadB+8,lw=fs*1.25;ctx.fillStyle='rgba(0,0,0,.35)';rr(ctx,px+3,py+3,lw,lw*2.9,4);ctx.fill();rr(ctx,px,py,lw,lw*2.9,4);ctx.fillStyle='#121416';ctx.fill();
+    [['red','#ff5d52'],['amber','#f2b632'],['green','#4fd18b']].forEach(([kk,c],i)=>{const on=S.light===kk;ctx.beginPath();ctx.arc(px+lw/2,py+lw*.5+i*lw*.95,lw*.32,0,7);ctx.fillStyle=on?c:'#2a2f33';ctx.fill();
+      if(on){const gl=ctx.createRadialGradient(px+lw/2,py+lw*.5+i*lw*.95,1,px+lw/2,py+lw*.5+i*lw*.95,lw*1.4);gl.addColorStop(0,c+'66');gl.addColorStop(1,c+'00');ctx.fillStyle=gl;ctx.fillRect(px-lw,py-lw+i*lw*.95,lw*3,lw*3)}});
+    pill('Signal 07',px+lw+4,py,'#c9d3d8',fs*.78,'left')}
+  // units
+  for(const site of S.sites){
+    const cx=X(site.x),bw=Math.max(3.5*G.sx*1.6,14);
+    for(const seg of site.segs){const y0=seg.lane===1?roadT+7:roadT+laneH+5,hh=laneH-12;
+      ctx.fillStyle='#1a1d1f';ctx.fillRect(cx-bw/2-3,y0-2,bw+6,hh+4);ctx.strokeStyle='#6c7377';ctx.lineWidth=1;ctx.strokeRect(cx-bw/2-3,y0-2,bw+6,hh+4);
+      ctx.globalAlpha=.16+.84*seg.h;ctx.fillStyle=stripe;ctx.fillRect(cx-bw/2,y0,bw,hh);ctx.globalAlpha=1;
+      if(seg.h>.05){ctx.fillStyle=`rgba(0,0,0,${.35*seg.h})`;const dir=seg.lane===0?1:-1;ctx.fillRect(dir>0?cx+bw/2:cx-bw/2-4*seg.h,y0,4*seg.h,hh)}
+      if(cfg.leds){const c=LED[seg.state];const blink=(seg.state==='JAMMED'||seg.state==='FAILSAFE'||seg.state==='FROZEN')?(Math.floor(S.t*3)%2):1;
+        for(let i=0;i<4;i++){const yy=y0+hh*(i+.5)/4;const sweep=(seg.state==='LOWERING'||seg.state==='FLAT')?(Math.floor(S.t*8)%4===i?1:.35):1;
+          const a=blink*sweep;for(const ex of [cx-bw/2-1.5,cx+bw/2+1.5]){ctx.fillStyle=c;ctx.globalAlpha=a;ctx.beginPath();ctx.arc(ex,yy,2.1,0,7);ctx.fill();
+            const gl=ctx.createRadialGradient(ex,yy,0,ex,yy,7);gl.addColorStop(0,c+'88');gl.addColorStop(1,c+'00');ctx.fillStyle=gl;ctx.fillRect(ex-7,yy-7,14,14);ctx.globalAlpha=1}}}
+      const ty=seg.lane===1?roadT-fs*1.45-6:roadB+6;pill(LAB[seg.state],cx,ty,LABC[seg.state],fs*.78);
+    }
+    // roadside cabinet + camera
+    const rx=cx+bw/2+16,ry=(roadB+walkB)/2+4;
+    if(cfg.enforce){ctx.fillStyle='rgba(56,198,178,.07)';ctx.beginPath();ctx.moveTo(rx,ry-6);ctx.lineTo(cx-X(30),roadT+laneH);ctx.lineTo(cx-X(30),roadB);ctx.closePath();ctx.fill()}
+    ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(rx+2,ry-6+2,fs*1.3,fs*1.6);ctx.fillStyle='#6b757b';ctx.fillRect(rx,ry-6,fs*1.3,fs*1.6);ctx.fillStyle='#38c6b2';ctx.beginPath();ctx.arc(rx+fs*.65,ry-1,fs*.17,0,7);ctx.fill();
+    ctx.fillStyle='#d6dcdf';ctx.font=`600 ${fs*1.05}px Barlow Condensed`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(site.name,rx+fs*1.5,ry+2);
+    for(const seg of site.segs){const v=seg.v2xVeh;if(!v)continue;const x1=X(v.x),y1=G.laneY(v.lane),x2=rx+fs*.65,y2=ry-1;
+      ctx.strokeStyle='rgba(56,198,178,.8)';ctx.lineWidth=1.3;ctx.setLineDash([5,5]);ctx.lineDashOffset=-S.t*30;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.setLineDash([]);ctx.lineDashOffset=0;
+      const p=(S.t*1.4)%1;ctx.fillStyle='#7fe3d4';ctx.beginPath();ctx.arc(x1+(x2-x1)*p,y1+(y2-y1)*p,2.4,0,7);ctx.fill()}
+  }
+  // vehicles
+  for(const v of S.veh)drawVehicle(v);
+  // capture flashes
+  S.flashes=S.flashes.filter(f=>S.t-f.t<2.5);
+  for(const f of S.flashes){const a=1-(S.t-f.t)/2.5,x=X(f.x),y=G.laneY(f.lane);
+    if(S.t-f.t<.25){ctx.fillStyle=`rgba(255,255,255,${.6*(1-(S.t-f.t)/.25)})`;ctx.beginPath();ctx.arc(x,y,laneH,0,7);ctx.fill()}
+    ctx.globalAlpha=a;pill(`PLATE ${f.plate} CAPTURED`,x+X(8),y+laneH*.15,'#ffcf5a',G.fs*.82,'left');ctx.globalAlpha=1}
+  // scale bar & status
+  const sb=50*G.sx,bx=12,by=H-10;ctx.fillStyle='rgba(11,16,19,.75)';rr(ctx,bx-6,by-18,sb+64,24,4);ctx.fill();
+  ctx.strokeStyle='#d6dcdf';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(bx,by-7);ctx.lineTo(bx,by-2);ctx.lineTo(bx+sb,by-2);ctx.lineTo(bx+sb,by-7);ctx.stroke();
+  ctx.fillStyle='#d6dcdf';ctx.font=`500 ${fs*.8}px IBM Plex Mono`;ctx.textAlign='left';ctx.textBaseline='bottom';ctx.fillText('50 m',bx+sb+6,by);
+}
+
+/* ================= cross-section ================= */
+const xs=$('xs'),xc=xs.getContext('2d');
+let focus={site:null,seg:null};
+function pickFocus(){
+  let f=null;
+  for(const site of S.sites)for(const seg of site.segs){if(!f&&(seg.active||seg.state==='JAMMED'||seg.state==='WAIT'||seg.state==='FROZEN'))f={site,seg}}
+  if(!f)for(const site of S.sites)for(const seg of site.segs){if(!f&&seg.state!=='RAISED')f={site,seg}}
+  if(!f)f={site:S.sites[0],seg:S.sites[0].segs[0]};focus=f;
+}
+function sizeCanvas(c){const r=c.getBoundingClientRect();const d=Math.min(3,(window.devicePixelRatio||1)*1.5);if(c.width!==Math.round(r.width*d)||c.height!==Math.round(r.height*d)){c.width=Math.round(r.width*d);c.height=Math.round(r.height*d)}return{w:r.width,h:r.height,d}}
+function xsDraw(){
+  if(!S||!focus.seg)return;const {w,h,d}=sizeCanvas(xs);if(!w)return;const c=xc;c.setTransform(d,0,0,d,0,0);
+  const seg=focus.seg,site=focus.site,dir=seg.lane===0?1:-1;
+  c.fillStyle='#121a1f';c.fillRect(0,0,w,h);
+  const span=22,ppm=w/span,road=h*.64,ex=75/1000*ppm*10; // height drawn 10x
+  const X=m=>w/2+m*ppm;const ramp=.9,top=.85;
+  const prof=m=>{const a=Math.abs(m);if(a<=top)return 1;if(a<=top+ramp)return 1-(a-top)/ramp;return 0};
+  // soil and layers
+  let gg=c.createLinearGradient(0,road,0,h);gg.addColorStop(0,'#3b3328');gg.addColorStop(1,'#241f18');c.fillStyle=gg;c.fillRect(0,road,w,h-road);
+  c.fillStyle='#2b3034';c.fillRect(0,road,w,10);c.fillStyle='#5a5246';c.fillRect(0,road+10,w,8);
+  // pit
+  const pw=(top+ramp)*2*ppm+16,pd=h*.27;c.fillStyle='#161a1c';c.fillRect(w/2-pw/2,road,pw,pd);c.strokeStyle='#8a9296';c.lineWidth=2;c.strokeRect(w/2-pw/2,road,pw,pd);
+  c.fillStyle='rgba(56,198,178,.6)';c.fillRect(w/2+pw/2-14,road+pd-10,8,6);
+  // actuators
+  const H0=seg.h*ex;
+  for(const m of [-.5,.5]){const x=X(m);c.fillStyle='#4b5357';c.fillRect(x-7,road+pd*.45,14,pd*.55-2);c.fillStyle='#c5ccd0';c.fillRect(x-2.5,road-H0+4,5,pd*.45+H0-4);
+    c.strokeStyle='#8f989c';c.lineWidth=1.3;c.beginPath();const sx0=x+16,y1=road+4-H0*.6,y2=road+pd-4;for(let i=0;i<=8;i++){const yy=y1+(y2-y1)*i/8;c[i?'lineTo':'moveTo'](sx0+(i%2?5:-5),yy)}c.stroke()}
+  // plate
+  c.beginPath();c.moveTo(X(-(top+ramp)),road);for(let m=-(top+ramp);m<=top+ramp;m+=.05)c.lineTo(X(m),road-prof(m)*H0);c.lineTo(X(top+ramp),road);c.closePath();
+  c.fillStyle='#2f3437';c.fill();c.save();c.clip();c.globalAlpha=.5+.5*seg.h;c.fillStyle=stripe;c.fillRect(X(-2),road-H0-2,4*ppm,Math.max(4,H0*.45));c.restore();c.globalAlpha=1;
+  c.strokeStyle='#f2b632';c.lineWidth=2;c.beginPath();for(let m=-(top+ramp);m<=top+ramp;m+=.05)c[m===-(top+ramp)?'moveTo':'lineTo'](X(m),road-prof(m)*H0);c.stroke();
+  if(cfg.leds){const col=LED[seg.state];c.fillStyle=col;c.beginPath();c.arc(X(0),road-H0-3,3,0,7);c.fill()}
+  // vehicle side silhouette
+  const v=S.veh.filter(v=>v.lane===seg.lane).map(v=>({v,m:(v.x-site.x)*dir})).filter(o=>Math.abs(o.m)<span/2+v0(o.v)).sort((a,b)=>Math.abs(a.m)-Math.abs(b.m))[0];
+  function v0(v){return v.len/2+1}
+  if(v){const m=v.m,len=v.v.len,wr=.34,wb=len*.62;const yW=mm=>road-prof(mm)*H0;const f=m+wb/2,r=m-wb/2;
+    const yf=yW(f)-wr*ppm,yr=yW(r)-wr*ppm,ang=Math.atan2(yf-yr,(f-r)*ppm);
+    c.save();c.translate(X(m),(yf+yr)/2);c.rotate(ang);
+    const bh=Math.min(h*.34,(v.v.type==='fire'?2.9:v.v.type==='amb'?2.5:v.v.type==='van'?2:1.45)*ppm);
+    c.fillStyle=v.v.type==='fire'?'#c9362e':v.v.type==='amb'?'#eef0f1':v.v.color;rr(c,-len/2*ppm,-bh-wr*ppm*.2,len*ppm,bh,6);c.fill();
+    if(v.v.type==='amb'){c.fillStyle='#d9342b';c.fillRect(-len/2*ppm,-bh*.45,len*ppm,bh*.12)}
+    c.fillStyle='rgba(20,30,40,.8)';c.fillRect(len*.18*ppm,-bh+4,len*.22*ppm,bh*.38);
+    c.restore();
+    for(const wm of [f,r]){c.fillStyle='#111';c.beginPath();c.arc(X(wm),yW(wm)-wr*ppm,wr*ppm,0,7);c.fill();c.fillStyle='#7d8487';c.beginPath();c.arc(X(wm),yW(wm)-wr*ppm,wr*ppm*.45,0,7);c.fill()}
+    c.fillStyle='#c9d3d8';c.font=`500 11px IBM Plex Mono`;c.textAlign='center';c.textBaseline='bottom';c.fillText(`${v.v.label} · ${Math.round(v.v.v*3.6)} km/h`,w/2,h-8)}
+  // readouts
+  c.textBaseline='top';c.textAlign='left';c.fillStyle='#e3ebee';c.font=`600 28px Barlow Condensed`;c.fillText(`${Math.round(seg.h*75)} mm`,10,6);
+  c.fillStyle='#8b9ba4';c.font='11px IBM Plex Sans';c.fillText('Plate height, 75 mm max (drawn 10× vertical)',10,38);
+  c.textAlign='right';c.fillStyle=LABC[seg.state];c.font='500 12px IBM Plex Mono';c.fillText(LAB[seg.state],w-10,8);
+  c.fillStyle='#8b9ba4';c.font='11px IBM Plex Sans';c.fillText(`Electromechanical · ${dir>0?'traffic →':'← traffic'}`,w-10,26);
+}
+
+/* ================= height chart ================= */
+const hc=$('hc'),hx=hc.getContext('2d'),SER=['#b98618','#00977f','#6f8ef0'];
+let hHover=null;
+function hChart(){
+  if(!S)return;const {w,h,d}=sizeCanvas(hc);if(!w)return;const c=hx;c.setTransform(d,0,0,d,0,0);c.clearRect(0,0,w,h);
+  const L=34,R=60,T=8,B=22,pw=w-L-R,ph=h-T-B,t1=Math.max(30,S.t),t0=t1-30;
+  const X=t=>L+(t-t0)/30*pw,Y=mm=>T+ph-(mm/75)*ph;
+  c.font='11px IBM Plex Mono';c.fillStyle='#8b9ba4';c.textAlign='right';c.textBaseline='middle';
+  for(const mm of [0,25,50,75]){c.strokeStyle='rgba(255,255,255,.07)';c.lineWidth=1;c.beginPath();c.moveTo(L,Y(mm));c.lineTo(L+pw,Y(mm));c.stroke();c.fillText(mm,L-6,Y(mm))}
+  c.textAlign='center';c.textBaseline='top';for(let s=0;s<=30;s+=10){c.fillText(s===0?'now':`−${s} s`,X(t1-s),T+ph+6)}
+  c.save();c.translate(10,T+ph/2);c.rotate(-Math.PI/2);c.textAlign='center';c.textBaseline='middle';c.fillText('mm',0,0);c.restore();
+  const ser=chartSeries();
+  ser.forEach((s,i)=>{c.strokeStyle=SER[i];c.lineWidth=2;c.lineJoin='round';c.beginPath();let first=true;
+    for(const p of S.hist){if(p.t<t0)continue;const y=Y((p.h[i]??1)*75);if(first){c.moveTo(X(p.t),y);first=false}else c.lineTo(X(p.t),y)}c.stroke();
+    const lp=S.hist[S.hist.length-1];if(lp){const y=Y(lp.h[i]*75);c.fillStyle=SER[i];c.beginPath();c.arc(X(lp.t),y,3.5,0,7);c.fill();
+      c.fillStyle='#e3ebee';c.textAlign='left';c.textBaseline='middle';c.fillText(s.name,X(lp.t)+7,y+(i-(ser.length-1)/2)*12)}});
+  $('hLgd').innerHTML=ser.map((s,i)=>`<span><i style="background:${SER[i]}"></i>${s.name}</span>`).join('');
+  const tip=$('hTip');
+  if(hHover!=null&&S.hist.length){const t=t0+(hHover-L)/pw*30;let best=null;for(const p of S.hist){if(!best||Math.abs(p.t-t)<Math.abs(best.t-t))best=p}
+    if(best&&hHover>=L&&hHover<=L+pw){c.strokeStyle='rgba(255,255,255,.35)';c.beginPath();c.moveTo(X(best.t),T);c.lineTo(X(best.t),T+ph);c.stroke();
+      tip.hidden=false;tip.innerHTML=`<b>T+${best.t.toFixed(1)} s</b><br>`+ser.map((s,i)=>`<span style="color:${SER[i]}">■</span> ${s.name}: ${Math.round(best.h[i]*75)} mm`).join('<br>');
+      const x=X(best.t);tip.style.left=Math.min(w-150,Math.max(0,x+10))+'px';tip.style.top='10px';}else tip.hidden=true}else tip.hidden=true;
+}
+$('hBox').addEventListener('pointermove',e=>{const r=hc.getBoundingClientRect();hHover=e.clientX-r.left;if(!playing)hChart()});
+$('hBox').addEventListener('pointerleave',()=>{hHover=null;$('hTip').hidden=true;if(!playing)hChart()});
+
+/* ================= live panels ================= */
+const STATE_UI={RAISED:['Raised','p-raised'],LOWERING:['Lowering','p-move'],FLAT:['Flush · holding','p-flat'],WAIT:['Lower held','p-hold'],HOLD:['Flush · awaiting clear','p-flat'],RAISING:['Raising','p-move'],FROZEN:['Frozen · vehicle in zone','p-bad'],FAILSAFE:['Failsafe raised','p-bad'],JAMMED:['Jammed · locked','p-bad']};
+const statePill=seg=>{const [t,c]=STATE_UI[seg.state];return`<span class="pill ${c}">${t}</span>`};
+function incidentHTML(){
+  const inc=sc.inc;
+  if(!inc)return`<div style="color:var(--muted)">No active dispatch incidents on this corridor. Units are in calming mode.</div>`;
+  const em=S.veh.filter(v=>v.em);let next='—',eta='—',veh=em[0];
+  if(veh){let best=null;for(const site of S.sites){const d=distTo(veh,site.x);if(d>0&&(!best||d<best.d))best={d,site}}
+    if(best){next=`${best.site.name} · ${Math.round(best.d)} m`;eta=veh.v>0.5?`${(best.d/veh.v).toFixed(1)} s`:'—'}else next='All units passed'}
+  const status=!S.emSeen?'Dispatched':S.emDone?'Cleared corridor':'En route';
+  return`<div class="inc"><div class="id">${inc.id}</div><div class="ty">${inc.type}</div><div><span class="prio">${inc.prio}</span></div>
+  <dl class="kv"><dt>Vehicle</dt><dd>${veh?veh.label:(S.emLabel||'Assigned')}</dd><dt>Status</dt><dd>${status}</dd><dt>Next unit</dt><dd>${next}</dd><dt>ETA to unit</dt><dd>${eta}</dd><dt>Platform link</dt><dd>${S.link?'Connected':'<span style="color:var(--amber)">Lost · edge mode</span>'}</dd></dl>
+  <div class="route">${S.sites.map(site=>`<span class="mono" style="font-size:11.5px;color:var(--muted)">${site.name}</span>${statePill(site.segs[sc.inc&&em[0]?em[0].lane:0])}`).join('')}</div></div>`;
+}
+function panels(){
+  pickFocus();
+  $('hudR').textContent=`T+${S.t.toFixed(1)} s · ${speed}×`;
+  $('incident').innerHTML=incidentHTML();
+  $('focusName').textContent=segName(focus.site,focus.seg);$('xsName').textContent=segName(focus.site,focus.seg);
+  const s=focus.seg.sig,pw=S.power;
+  $('chips').innerHTML=[['Dispatch geofence',s.disp,'on'],['V2X credential',s.v2x,'on'],['Acoustic siren',s.acoustic,(s.disp||s.v2x)?'on':'warn'],['Zone clear',s.clear,'on'],
+    [`Confirmations ${s.conf||0}/3`,(s.conf||0)>=cfg.need&&(s.disp||s.v2x),'on'],['Platform link '+(S.link?'up':'lost'),true,S.link?'on':'warn'],
+    ['Power '+(pw==='grid'?'grid':pw==='battery'?'battery':'fault'),true,pw==='grid'?'on':pw==='battery'?'warn':'bad'],['Tailgate camera '+(cfg.enforce?'on':'off'),cfg.enforce,'on']]
+    .map(([l,on,c])=>`<div class="chip ${on?c:''}"><b></b>${l}</div>`).join('');
+  $('ruleHint').textContent=`Rule: dispatch or V2X credential plus ${cfg.need===2?'one more signal (two of three)':'both other signals (three of three)'}. Raise after ${cfg.clearT} s clear within ${cfg.buffer} m.`;
+  $('segs').innerHTML=S.sites.flatMap(site=>site.segs.map(seg=>`<tr><td class="mono">${segName(site,seg)}</td><td>${statePill(seg)}</td><td><span class="mbar"><i style="width:${Math.round(seg.h*100)}%"></i></span><span class="mono">${Math.round(seg.h*75)} mm</span></td></tr>`)).join('');
+  const avg=S.civ.length?Math.round(S.civ.reduce((a,b)=>a+b,0)/S.civ.length):null;
+  $('kpis').innerHTML=[[S.em!=null?S.em+' km/h':'—',S.em!=null?`${S.emLabel} crossing speed`:'Emergency crossing speed'],[avg!=null?avg+' km/h':'—','Civilian avg over raised unit'],
+    [S.act,'Actuations'],[S.rej,'Requests rejected'],[S.flatCiv,cfg.enforce?'Plates captured':'Civilian flush crossings'],[S.sites.length*2,'Lane segments']]
+    .map(([v,l])=>`<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+  if(logDirty){logDirty=false;$('log').innerHTML=S.log.map(e=>`<li class="${e.kind}"><span>${e.t.toFixed(1)}s</span>${e.msg}</li>`).join('')}
+  const unacked=alarmLog.filter(a=>!a.acked).length;$('alarmCnt').hidden=!unacked;$('alarmCnt').textContent=unacked;
+  $('unitsOnline').textContent=`${FLEET.filter(u=>u.health!=='Offline').length}/${FLEET.length} units online`;
+  if(view==='units')renderFleet();if(view==='incidents')renderInc();if(view==='alarms'&&alarmsDirty)renderAlarms();
+}
+
+/* ================= fleet, incidents, alarms ================= */
+const FLEET=[
+ {u:'HR-01',loc:'Hospital Road, near main gate',live:0,health:'Healthy',bat:96,temp:41,cyc:38,test:'03:10 today',fw:'2.4.1'},
+ {u:'HR-02',loc:'Hospital Road, school frontage',live:1,health:'Healthy',bat:94,temp:43,cyc:41,test:'03:10 today',fw:'2.4.1'},
+ {u:'HR-03',loc:'Hospital Road, junction 7 approach',live:2,health:'Healthy',bat:91,temp:44,cyc:29,test:'03:11 today',fw:'2.4.1'},
+ {u:'CS-04',loc:'Corniche Service Road',health:'Healthy',bat:98,temp:39,cyc:52,test:'03:12 today',fw:'2.4.1'},
+ {u:'CS-05',loc:'Corniche Service Road, park exit',health:'Self-test drift',bat:88,temp:46,cyc:47,test:'03:12 today · motor current +14%',fw:'2.4.1',sev:'warn'},
+ {u:'S12-06',loc:'Sector 12 collector, mosque frontage',health:'Healthy',bat:97,temp:42,cyc:33,test:'03:13 today',fw:'2.4.0'},
+ {u:'S12-07',loc:'Sector 12 collector, clinic',health:'Healthy',bat:95,temp:42,cyc:27,test:'03:13 today',fw:'2.4.0'},
+ {u:'SZ-08',loc:'School Zone 3, east gate',health:'Pit water detected',bat:93,temp:37,cyc:12,test:'Skipped · locked raised',fw:'2.4.1',sev:'bad'},
+ {u:'SZ-09',loc:'School Zone 3, west gate',health:'Healthy',bat:99,temp:38,cyc:19,test:'03:14 today',fw:'2.4.1'},
+ {u:'FS-10',loc:'Fire Station 2 exit',health:'Healthy',bat:92,temp:45,cyc:64,test:'03:15 today',fw:'2.4.1'},
+ {u:'FS-11',loc:'Fire Station 2, service lane',health:'Offline',bat:null,temp:null,cyc:0,test:'Link lost 06:42',fw:'2.3.7',sev:'bad'},
+ {u:'HC-12',loc:'Health centre access road',health:'Healthy',bat:97,temp:40,cyc:22,test:'03:16 today',fw:'2.4.1'}
+];
+function renderFleet(){
+  $('fleet').innerHTML=FLEET.map(u=>{
+    let eb='<span class="pill p-raised">Raised</span>',wb=eb;
+    if(u.live!=null){const site=S.sites[u.live];if(site){eb=statePill(site.segs[0]);wb=statePill(site.segs[1])}}
+    if(u.health==='Offline'){eb=wb='<span class="pill p-hold">Unknown</span>'}
+    const hc=u.sev==='bad'?'p-bad':u.sev==='warn'?'p-raised':'p-ok';
+    return`<tr><td class="mono">${u.u}${u.live!=null&&S.sites[u.live]?` <span style="color:var(--teal)">· live</span>`:''}</td><td>${u.loc}</td><td>${eb}</td><td>${wb}</td><td><span class="pill ${hc}">${u.health}</span></td>
+    <td>${u.bat!=null?`<span class="mbar"><i style="width:${u.bat}%;background:${u.bat>90?'var(--ok)':'var(--amber)'}"></i></span>${u.bat}%`:'—'}</td><td>${u.temp!=null?u.temp+' °C':'—'}</td><td>${u.cyc}</td><td>${u.test}</td><td class="mono">${u.fw}</td></tr>`}).join('');
+}
+const PAST=[
+ ['INC-26-10479','14:52','Road traffic collision','P1','Ambulance A07','HR-01, HR-02, HR-03','24.6','Completed'],
+ ['INC-26-10476','13:18','Chest pain','P1 · patient on board','Ambulance A12','HR-03, HR-02','16.9','Completed'],
+ ['INC-26-10471','11:40','Kitchen fire','P2','Fire truck F21','FS-10, CS-04','15.2','Completed'],
+ ['INC-26-10466','10:05','Fall, elderly','P2','Ambulance A03','S12-06, S12-07','17.4','Completed'],
+ ['INC-26-10461','08:31','Stroke','P1 · patient on board','Ambulance A09','HC-12, HR-01','16.1','Completed'],
+ ['INC-26-10457','07:12','Breathing difficulty','P1','Ambulance A12','SZ-09, HR-02','8.3','Completed · SZ-08 locked']
+];
+function renderInc(){
+  let live='';
+  if(sc.inc){const saved=S.emDone&&S.em>40?(S.sites.length*8.1).toFixed(1):S.emDone?'0.0':'—';const em=S.veh.find(v=>v.em);
+    live=`<tr><td class="mono">${sc.inc.id}</td><td>Now</td><td>${sc.inc.type}</td><td><span class="prio">${sc.inc.prio}</span></td><td>${em?em.label:(S.emLabel||'Assigned')}</td><td>${S.sites.map(s=>s.name).join(', ')} (Hospital Rd)</td><td>${saved}</td><td><span class="pill ${S.emDone?'p-ok':'p-move'}">${!S.emSeen?'Dispatched':S.emDone?'Cleared corridor':'En route'}</span></td></tr>`}
+  $('incTbl').innerHTML=live+PAST.map(r=>`<tr><td class="mono">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td><span class="prio">${r[3]}</span></td><td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td><td><span class="pill p-ok">${r[7]}</span></td></tr>`).join('');
+}
+const PAST_ALARMS=[
+ {msg:'FS-11: link lost to edge controller — unit last reported raised',kind:'bad',at:'06:42',src:'Fleet'},
+ {msg:'SZ-08: water detected in pit — unit locked raised, reported unavailable to dispatch',kind:'bad',at:'05:58',src:'Fleet'},
+ {msg:'CS-05: nightly self-test motor current 14% above baseline — inspect for sand ingress',kind:'warn',at:'03:12',src:'Fleet'}
+];
+function renderAlarms(){
+  alarmsDirty=false;
+  const fmt=d=>d.toTimeString().slice(0,8);
+  const row=(a,i,live)=>`<div class="alarm ${a.acked?'acked':''}"><span class="sev" style="background:${a.kind==='bad'?'var(--red)':'var(--amber)'}"></span>
+    <div style="min-width:0"><div class="t">${a.msg}</div><div class="m">${live?fmt(a.at)+' · '+a.src:a.at+' · '+a.src}${a.acked?' · acknowledged':''}</div></div>
+    ${a.acked?'<span class="pill p-hold">Acknowledged</span>':`<button class="btn" type="button" data-ack="${live?a.id:'p'+i}">Acknowledge</button>`}</div>`;
+  $('alarms').innerHTML=alarmLog.map(a=>row(a,0,true)).join('')+PAST_ALARMS.map((a,i)=>row(a,i,false)).join('');
+}
+$('alarms').addEventListener('click',e=>{const b=e.target.closest('[data-ack]');if(!b)return;const k=b.dataset.ack;
+  if(k[0]==='p')PAST_ALARMS[+k.slice(1)].acked=true;else{const a=alarmLog.find(a=>a.id===+k);if(a)a.acked=true}renderAlarms();panels()});
+$('ackAll').onclick=()=>{alarmLog.forEach(a=>a.acked=true);PAST_ALARMS.forEach(a=>a.acked=true);renderAlarms();panels()};
+
+/* ================= analytics charts ================= */
+const DAYS=[];{const now=new Date();for(let i=13;i>=0;i--){const d=new Date(now);d.setDate(d.getDate()-i);DAYS.push(d)}}
+const PASS=[12,15,14,18,13,9,11,16,17,19,14,20,17,19];
+const SPEEDS=[[8,2],[10,5],[12,12],[14,20],[16,23],[18,18],[20,11],[22,5],[24,3],[26,1]];
+function barChart(cid,boxId,tipId,labels,vals,color,fmtTip,xLab){
+  const c=$(cid),{w,h,d}=sizeCanvas(c);if(!w)return;const g=c.getContext('2d');g.setTransform(d,0,0,d,0,0);g.clearRect(0,0,w,h);
+  const L=40,R=10,T=10,B=36,pw=w-L-R,ph=h-T-B,raw=Math.max(...vals)/4,stp=[1,2,5,10,20,50].find(x=>x>=raw)||100,mx=stp*4;
+  const Y=v=>T+ph-v/mx*ph,bw=pw/vals.length;
+  g.font='11px IBM Plex Mono';g.fillStyle='#8b9ba4';g.textAlign='right';g.textBaseline='middle';
+  for(let v=0;v<=mx;v+=stp){g.strokeStyle='rgba(255,255,255,.07)';g.beginPath();g.moveTo(L,Y(v));g.lineTo(L+pw,Y(v));g.stroke();g.fillText(Math.round(v),L-6,Y(v))}
+  const hov=c._hov;
+  vals.forEach((v,i)=>{const x=L+i*bw+2,bwid=bw-4,y=Y(v);g.fillStyle=hov===i?shade(color,.18):color;rr(g,x,y,bwid,T+ph-y,[4,4,0,0]);g.fill()});
+  g.fillStyle='#8b9ba4';g.textAlign='center';g.textBaseline='top';labels.forEach((l,i)=>{if(labels.length<=10||i%2===0)g.fillText(l,L+i*bw+bw/2,T+ph+6)});g.fillText(xLab,L+pw/2,T+ph+21);g.save();g.translate(10,T+ph/2);g.rotate(-Math.PI/2);g.textBaseline='middle';g.fillText(c._ylab||'',0,0);g.restore();
+  const tip=$(tipId);if(hov!=null){tip.hidden=false;tip.innerHTML=fmtTip(hov);tip.style.left=Math.min(w-140,L+hov*bw+bw/2+8)+'px';tip.style.top=(Y(vals[hov])-10)+'px'}else tip.hidden=true;
+  if(!c._wired){c._wired=true;const box=$(boxId);box.addEventListener('pointermove',e=>{const r=c.getBoundingClientRect();const i=Math.floor((e.clientX-r.left-L)/bw);c._hov=i>=0&&i<vals.length?i:null;draw2()});box.addEventListener('pointerleave',()=>{c._hov=null;draw2()})}
+}
+function draw2(){$('ac')._ylab='Passages';$('bc')._ylab='% of crossings';
+  barChart('ac','aBox','aTip',DAYS.map(d=>String(d.getDate())),PASS,'#00977f',i=>`<b>${DAYS[i].toDateString().slice(4,10)}</b><br>${PASS[i]} emergency passages`,'Day of month');
+  barChart('bc','bBox','bTip',SPEEDS.map(s=>s[0]),SPEEDS.map(s=>s[1]),'#b98618',i=>`<b>${SPEEDS[i][0]}–${SPEEDS[i][0]+2} km/h</b><br>${SPEEDS[i][1]}% of crossings`,'Crossing speed, km/h (bin start)');
+}
+
+/* ================= settings ================= */
+const FIELDS=[
+ {k:'geofence',l:'Approach geofence',d:'Distance before the unit at which the dispatch trigger starts lowering.',min:60,max:220,step:10,u:'m'},
+ {k:'v2x',l:'V2X read range',d:'Range at which the roadside unit accepts a signed vehicle credential.',min:80,max:300,step:10,u:'m'},
+ {k:'acoustic',l:'Siren detection range',d:'Acoustic sensor range. Never triggers on its own.',min:50,max:200,step:10,u:'m'},
+ {k:'lowerT',l:'Lowering time',d:'Actuator time from raised to flush.',min:1,max:4,step:.1,u:'s'},
+ {k:'raiseT',l:'Raising time',d:'Slow, controlled rise once the zone is clear.',min:1.5,max:6,step:.5,u:'s'},
+ {k:'clearT',l:'Clear-zone wait',d:'Zone must stay empty this long before the unit rises.',min:.5,max:5,step:.5,u:'s'},
+ {k:'buffer',l:'Approach buffer',d:'No movement while any vehicle is this close to the unit.',min:10,max:50,step:5,u:'m'},
+ {k:'need',l:'Confirmation rule',d:'Signals needed before lowering. A credential is always required.',seg:[[2,'2 of 3'],[3,'3 of 3']]},
+ {k:'leds',l:'LED light language',d:'Amber when raised, blue during emergency passage, red "do not follow" after.',seg:[[true,'On'],[false,'Off']]},
+ {k:'enforce',l:'Tailgating enforcement',d:'Capture the plate of civilian vehicles crossing flush behind an emergency vehicle.',seg:[[true,'On'],[false,'Off']]}
+];
+let draft={...cfg};
+function renderForm(){
+  $('form').innerHTML=FIELDS.map(f=>`<div class="field"><label for="f-${f.k}">${f.l}</label><div class="d">${f.d}</div>
+    ${f.seg?`<div class="seg" role="group" id="f-${f.k}" aria-label="${f.l}">${f.seg.map(([v,t])=>`<button type="button" data-k="${f.k}" data-v="${v}" aria-pressed="${draft[f.k]===v}">${t}</button>`).join('')}</div>`
+    :`<div class="row"><input type="range" id="f-${f.k}" data-k="${f.k}" min="${f.min}" max="${f.max}" step="${f.step}" value="${draft[f.k]}"><output id="o-${f.k}">${draft[f.k]} ${f.u}</output></div>`}</div>`).join('');
+}
+$('form').addEventListener('input',e=>{const k=e.target.dataset.k;if(!k)return;draft[k]=+e.target.value;const f=FIELDS.find(f=>f.k===k);$('o-'+k).textContent=`${draft[k]} ${f.u}`});
+$('form').addEventListener('click',e=>{const b=e.target.closest('button[data-k]');if(!b)return;const k=b.dataset.k,raw=b.dataset.v;draft[k]=raw==='true'?true:raw==='false'?false:+raw;renderForm()});
+$('apply').onclick=()=>{cfg={...draft};try{localStorage.setItem('rp-cfg',JSON.stringify(cfg))}catch(_){}reset();buildBG();$('toast').hidden=false;setTimeout(()=>$('toast').hidden=true,2600);panels()};
+$('defaults').onclick=()=>{draft={...DEF};renderForm()};
+
+/* ================= shell ================= */
+let view='live';
+const VIEWS=['live','units','incidents','analytics','alarms','settings'];
+function show(v){view=VIEWS.includes(v)?v:'live';VIEWS.forEach(x=>{$('v-'+x).hidden=x!==view});
+  document.querySelectorAll('.nav').forEach(b=>b.setAttribute('aria-current',b.dataset.view===view?'page':'false'));
+  if(view==='live')requestAnimationFrame(()=>{resize()});
+  if(view==='analytics')requestAnimationFrame(draw2);
+  if(view==='alarms')renderAlarms();if(view==='settings'){draft={...cfg};renderForm()}
+  panels()}
+document.querySelector('.rail').addEventListener('click',e=>{const b=e.target.closest('.nav');if(!b)return;try{history.replaceState(null,'','#'+b.dataset.view)}catch(_){}show(b.dataset.view)});
+$('scenario').innerHTML=SC.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+$('scenario').onchange=e=>load(e.target.value);
+function load(id){sc=SC.find(s=>s.id===id)||SC[1];$('scenario').value=sc.id;reset();
+  $('sceneTitle').textContent=sc.sites.length>1?'Hospital Road · Units S1–S3 and Signal 07':'Hospital Road · Unit S1';
+  geom();if(G.W)resize();setPlaying(true);panels()}
+function setPlaying(p){playing=p;$('play').textContent=p?'Pause':'Play';stage.classList.toggle('paused',!p)}
+$('play').onclick=()=>setPlaying(!playing);
+$('restart').onclick=()=>{reset();setPlaying(true);panels()};
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=+b.dataset.speed;document.querySelectorAll('[data-speed]').forEach(x=>x.setAttribute('aria-pressed',x===b))});
+$('full').onclick=()=>{try{const p=document.fullscreenElement?document.exitFullscreen():stage.requestFullscreen();p&&p.catch&&p.catch(()=>{})}catch(_){}};
+addEventListener('keydown',e=>{if(e.code==='Space'&&view==='live'&&!/INPUT|TEXTAREA|BUTTON|SELECT/.test(document.activeElement.tagName)){e.preventDefault();setPlaying(!playing)}});
+new ResizeObserver(()=>{if(view==='live')resize();if(view==='analytics')draw2()}).observe(document.body);
+setInterval(()=>{$('wall').textContent=new Date().toTimeString().slice(0,8)},1000);
+
+let last=performance.now(),acc=0,lastUi=0;
+function frame(now){
+  const dt=Math.min(.1,(now-last)/1000);last=now;
+  if(playing&&S){
+    if(S.t>=sc.dur){endHold+=dt;if(endHold>1.5)reset()}
+    else{acc+=dt*speed;while(acc>=1/60){step(1/60);acc-=1/60}}
+    if(view==='live'){draw();xsDraw();}
+    if(now-lastUi>120){lastUi=now;panels();if(view==='live')hChart()}
+  }
+  requestAnimationFrame(frame);
+}
+load('emergency');
+show((location.hash||'').slice(1)||'live');
+if(matchMedia('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<60*10;i++)step(1/60);setPlaying(false);panels();draw();xsDraw();hChart()}
+requestAnimationFrame(frame);
+})();
 </script>
-</body>
-</html>
+
+</body></html>
