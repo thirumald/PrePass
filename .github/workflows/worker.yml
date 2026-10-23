@@ -1,0 +1,32 @@
+name: Deploy API to Cloudflare Workers
+# Runs the tests, then deploys worker/ if the Cloudflare secrets are set. Until they are, it only tests.
+on:
+  push:
+    branches: [main]
+    paths: ['worker/**', '.github/workflows/worker.yml']
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - name: Deploy
+        if: env.CF_TOKEN != ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          secrets: |
+            ADMIN_PASSWORD
+        env:
+          ADMIN_PASSWORD: ${{ secrets.RP_ADMIN_PASSWORD }}
+      - name: Deploy skipped
+        if: env.CF_TOKEN == ''
+        run: echo "Add the CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID and RP_ADMIN_PASSWORD repository secrets to deploy."

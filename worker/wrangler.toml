@@ -1,0 +1,19 @@
+name = "rapidpass-api"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# One Durable Object holds all state (SQLite-backed, which the free plan supports).
+[[durable_objects.bindings]]
+name = "RP"
+class_name = "RapidPassDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RapidPassDO"]
+
+[vars]
+# Web address(es) allowed to call the API from a browser, comma-separated.
+CORS_ORIGIN = "https://thirumald.github.io"
+# Set to "0" to turn off the demo vehicle simulator.
+ENABLE_SIMULATE = "1"
+# Secrets (set with: npx wrangler secret put NAME): ADMIN_PASSWORD (first start), TOMTOM_KEY (optional).

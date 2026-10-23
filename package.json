@@ -4,9 +4,11 @@
   "description": "Emergency-vehicle priority pass service: issues signed credentials and verifies V2X priority messages for smart speed breakers.",
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js worker/test/*.test.js"
   }
 }

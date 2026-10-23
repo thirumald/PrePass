@@ -41,7 +41,7 @@ To publish: Settings, Pages, Source "GitHub Actions". `.github/workflows/deploy.
 ```
 cp .env.example .env     # then export the variables, or set them in your host
 npm start                # http://localhost:3000, serves index.html too
-npm test                 # 28 tests
+npm test                 # 41 tests: Node server and Workers version
 ```
 
 ### API
@@ -62,8 +62,18 @@ Send `Authorization: Bearer <token>`.
 
 ### Deploy
 
-The repo has a `Dockerfile` and a Render blueprint (`render.yaml`). Any host that runs a container and keeps a disk at `/data` works. Set `ADMIN_PASSWORD`, `CORS_ORIGIN` and, if wanted, `TOMTOM_KEY`, then paste the server's https address into the Passes view and sign in. GitHub Pages cannot run the server, so the page stays on Pages and the API lives elsewhere.
+**Free option: Cloudflare Workers** (`worker/`). The same API and JSON as the Node server, so the Passes view works with either. It stores everything in one Durable Object (SQLite-backed, available on the free plan), which keeps counters and revocations consistent. It uses only WebCrypto, so it runs on Workers without Node. It was run on the real Workers runtime (`wrangler dev --local`) and through the page, and its 13 tests also run in `npm test`.
+
+1. Create a free Cloudflare account.
+2. Create an API token from the "Edit Cloudflare Workers" template, and note your account id.
+3. In this repo, Settings, Secrets and variables, Actions, add `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `RP_ADMIN_PASSWORD` (the first admin's password, at least 10 characters).
+4. Actions, "Deploy API to Cloudflare Workers", Run workflow. It tests, then deploys.
+5. The API is at `https://rapidpass-api.<your-subdomain>.workers.dev`. Paste that into the Passes view and sign in as `admin`.
+
+To deploy by hand instead: `cd worker && npx wrangler deploy && npx wrangler secret put ADMIN_PASSWORD`. Set `CORS_ORIGIN` in `worker/wrangler.toml` if the page is not on `thirumald.github.io`, and `ENABLE_SIMULATE` to `"0"` for production. An optional `TOMTOM_KEY` secret turns on the server-side proxy.
+
+**Other hosts:** the repo also has a `Dockerfile` and a Render blueprint for the Node server (`src/server.js`). Render's free tier has no persistent disk, so use the Workers version if you want free storage.
 
 ## Limits
 
-The signing key lives in the data file; production would hold it in an HSM or secret manager and rotate certificates. Device keys are also stored so the demo simulator can act as a vehicle; real vehicles would keep theirs. There is no password reset or multi-factor login, and login throttling is in memory, so it resets on restart. Tests run in the Tests workflow on every push.
+On Workers, login throttling lives in the object's memory, so it resets when Cloudflare restarts the object, and PBKDF2 is capped at 100,000 rounds. Free-plan request and storage limits apply. The signing key lives in the data file (or Durable Object storage); production would hold it in an HSM or secret manager and rotate certificates. Device keys are also stored so the demo simulator can act as a vehicle; real vehicles would keep theirs. There is no password reset or multi-factor login, and login throttling is in memory, so it resets on restart. Tests run in the Tests workflow on every push.
