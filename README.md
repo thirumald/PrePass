@@ -13,7 +13,11 @@ Priority-pass service for emergency vehicles, built to feed the smart speed brea
 
 Rejections with a forged credential, a wrong device key or a replay set `alert: true` so the caller can notify police.
 
-## Run
+## Live demo (GitHub Pages)
+
+`index.html` in the repo root is a static copy that runs the whole system in the browser with WebCrypto, so GitHub Pages can serve it. In the repo go to Settings, Pages, set Source to "Deploy from a branch", branch `main`, folder `/ (root)`. The site is then at https://thirumald.github.io/RapidPass/. It needs a browser with Ed25519 in WebCrypto (current Chrome, Edge, Firefox, or Safari 17+).
+
+## Run the Node server
 
 Needs Node 20 or later. No dependencies.
 
