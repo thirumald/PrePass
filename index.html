@@ -333,6 +333,14 @@ h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.
             <select class="sel rpm-in" id="rpm-beh"><option value="genuine">Genuine ambulance, patient on board</option><option value="returning">Returning to station, no priority (E7)</option><option value="clone">Cloned tag (S2)</option><option value="replay">Replayed message (S3)</option></select>
             <div class="rpm-row"><button class="btn primary" id="rpm-plan" type="button">Plan route</button><button class="btn" id="rpm-run" type="button" disabled>Run RapidPass corridor</button><button class="btn" id="rpm-stop" type="button" disabled>Stop</button><button class="btn" id="rpm-green" type="button">Open green corridor in Live</button></div>
             <div id="rpm-routeOut" class="rpm-note" style="margin-top:8px"></div></div>
+          <div class="card"><h3>Pilot corridors <span class="rpm-note" id="rpm-leagueState"></span></h3>
+            <div class="rpm-note">Each major hospital is paired with its nearest civil defence station. Routes are ranked by the time speed bumps cost an emergency run, so the top row is the best place to pilot first.</div>
+            <div class="rpm-row"><button class="btn primary" id="rpm-league" type="button">Rank corridors</button></div>
+            <div class="rpm-tbl-wrap" style="margin-top:8px"><table class="tbl" id="rpm-leagueTbl"></table></div></div>
+          <div class="card"><h3>Response coverage <span class="rpm-note" id="rpm-covState"></span></h3>
+            <div class="rpm-note">Shaded areas can be reached from a civil defence station within 4, 6 and 8 minutes. White gaps are where a response takes longer.</div>
+            <div class="rpm-row"><button class="btn primary" id="rpm-cov" type="button">Compute coverage</button><label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="rpm-covShow" checked> Show on map</label></div>
+            <div id="rpm-covOut" class="rpm-note" style="margin-top:8px"></div></div>
           <div class="card"><h3>Hospital access <span class="rpm-note" id="rpm-bumpState"></span></h3><div class="rpm-tbl-wrap"><table class="tbl" id="rpm-hosp"></table></div>
             <div class="rpm-note" style="margin-top:6px">Speed bumps come from OpenStreetMap and may be incomplete. Counts are within 1 km, so they are an upper bound for any one approach.</div></div>
           <div class="card"><h3>Layers</h3>
@@ -1160,12 +1168,13 @@ const flowUrl = () => `${TT}/traffic/map/4/tile/flow/relative/{z}/{x}/{y}.png?ke
 
 function addAll() {
   const add = (id, d) => { if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: d }) };
-  add('places', placesGeo()); add('ptowers', placeTowers()); add('inc', incLines()); add('jtowers', jamTowers()); add('bumps', bumpsGeo()); add('route', emptyGeo); add('rbumps', emptyGeo);
+  add('places', placesGeo()); add('ptowers', placeTowers()); add('inc', incLines()); add('jtowers', jamTowers()); add('bumps', bumpsGeo()); add('route', emptyGeo); add('rbumps', emptyGeo); ['480', '360', '240'].forEach(b => add('cov' + b, COV.done ? covGeo(+b) : emptyGeo));
   const L = d => { if (!map.getLayer(d.id)) map.addLayer(d) };
   const st = map.getStyle(), has3d = (st.layers || []).some(l => l.type === 'fill-extrusion'), vec = Object.keys(st.sources || {}).find(k => st.sources[k].type === 'vector');
   if (!has3d && vec) L({ id: 'rp-b3d', type: 'fill-extrusion', source: vec, 'source-layer': 'building', minzoom: 13, paint: { 'fill-extrusion-color': M.style === 'grey' ? '#3a444b' : '#c9ccd2', 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 12], 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0], 'fill-extrusion-opacity': 0.85 } });
   if (M.key && !map.getSource('flow')) map.addSource('flow', { type: 'raster', tileSize: 256, maxzoom: 18, tiles: [flowUrl()], attribution: 'Traffic © TomTom' });
   if (map.getSource('flow')) L({ id: 'flow', type: 'raster', source: 'flow', paint: { 'raster-opacity': 0.9 } });
+  [['480', '#5b93ff', 0.16], ['360', '#38c6b2', 0.2], ['240', '#f2b632', 0.26]].forEach(([k, c, o]) => L({ id: 'cov' + k, type: 'fill', source: 'cov' + k, paint: { 'fill-color': c, 'fill-opacity': o, 'fill-outline-color': c } }));
   L({ id: 'inc-closed', type: 'line', source: 'inc', filter: ['==', ['get', 'cat'], 'closed'], paint: { 'line-color': '#b0161a', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 16, 6], 'line-dasharray': [2, 1.5] } });
   L({ id: 'inc-works', type: 'line', source: 'inc', filter: ['==', ['get', 'cat'], 'works'], paint: { 'line-color': '#f2b632', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 16, 6], 'line-dasharray': [1, 1.2] } });
   L({ id: 'inc-jam', type: 'line', source: 'inc', filter: ['==', ['get', 'cat'], 'jam'], paint: { 'line-color': ['get', 'c'], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 10] } });
@@ -1320,6 +1329,80 @@ async function startRun() {
   };
   requestAnimationFrame(tick);
 }
+
+
+/* ---------- pilot corridor league + response coverage ---------- */
+const LEAGUE = { rows: [], running: false };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function nearestStations(hosp) { // station index per hospital by drive time (OSRM table), straight line as fallback
+  const st = SNAP.fire, coords = [...st, ...hosp].map(p => p.lon + ',' + p.lat).join(';');
+  try {
+    const r = await fetch(`https://router.project-osrm.org/table/v1/driving/${coords}?sources=${st.map((_, i) => i).join(';')}&destinations=${hosp.map((_, i) => st.length + i).join(';')}&annotations=duration`);
+    if (!r.ok) throw new Error('HTTP ' + r.status); const d = (await r.json()).durations;
+    return hosp.map((_, j) => { let bi = 0; st.forEach((_, i) => { if (d[i][j] != null && (d[bi][j] == null || d[i][j] < d[bi][j])) bi = i }); return bi });
+  } catch { return hosp.map(h => { let bi = 0, bd = Infinity; st.forEach((s, i) => { const d = hav([s.lon, s.lat], [h.lon, h.lat]); if (d < bd) { bd = d; bi = i } }); return bi }) }
+}
+function renderLeague() {
+  const rows = LEAGUE.rows.slice().sort((a, b) => (b.lost ?? -1) - (a.lost ?? -1) || (b.lost || 0) / b.s - (a.lost || 0) / a.s);
+  $('rpm-leagueTbl').innerHTML = '<tr><th>#</th><th>Corridor</th><th>km</th><th>Time</th><th>Bumps</th><th>Lost</th><th>On route</th></tr>' + rows.map((r, i) =>
+    `<tr class="rpm-tr" data-i="${r.i}"><td>${i + 1}</td><td style="white-space:normal">${esc(r.st.name)} → <b>${esc(r.h.name)}</b></td><td>${r.km}</td><td>${fmtMin(r.s)}${r.delay ? ` <span class="rpm-warn">+${r.delay}s</span>` : ''}</td><td>${r.n ?? '–'}</td><td>${r.lost == null ? '–' : r.lost + ' s'}<div class="rpm-bar"><i style="width:${r.lost ? r.lost / Math.max(1, ...rows.map(x => x.lost || 0)) * 100 : 0}%"></i></div></td><td>${r.blocks}</td></tr>`).join('');
+}
+async function rankCorridors() {
+  if (LEAGUE.running) return; LEAGUE.running = true; $('rpm-league').disabled = true; LEAGUE.rows = []; renderLeague();
+  const hosp = SNAP.hospitals.filter(h => h.major), sec = +$('rpm-sec').value;
+  try {
+    $('rpm-leagueState').textContent = 'loading speed bumps…'; await loadBumps().catch(e => { M.bumpsErr = e.message });
+    $('rpm-leagueState').textContent = 'matching stations…'; const near = await nearestStations(hosp);
+    for (let k = 0; k < hosp.length; k++) {
+      const h = hosp[k], st = SNAP.fire[near[k]]; $('rpm-leagueState').textContent = `routing ${k + 1} of ${hosp.length}…`;
+      try { const r = await getRoute([st.lon, st.lat], [h.lon, h.lat]), rb = routeBumps(r.coords), n = rb.list ? rb.list.length : null;
+        LEAGUE.rows.push({ i: k, h, st, route: r, km: (r.m / 1000).toFixed(1), s: r.s, delay: r.delay, n, lost: n == null ? null : n * sec, blocks: M.inc.filter(i => i.cat !== 'works' && i.geom.some(p => distToLine(p, r.coords) < 40)).length }) } catch {}
+      renderLeague(); if (!M.key) await sleep(450);
+    }
+    const top = LEAGUE.rows.slice().sort((a, b) => (b.lost ?? -1) - (a.lost ?? -1) || (b.lost || 0) / b.s - (a.lost || 0) / a.s)[0];
+    $('rpm-leagueState').textContent = top && top.lost != null ? `pilot first: ${top.h.name}` : 'done';
+  } catch (e) { $('rpm-leagueState').textContent = e.message }
+  LEAGUE.running = false; $('rpm-league').disabled = false;
+}
+function showLeagueRoute(i) {
+  const r = LEAGUE.rows.find(x => x.i === i); if (!r) return; M.route = r.route; stopRun();
+  setData('route', { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: r.route.coords } }); setData('rbumps', emptyGeo);
+  map.fitBounds(r.route.coords.reduce((bx, p) => bx.extend(p), new maplibregl.LngLatBounds(r.route.coords[0], r.route.coords[0])), { padding: 80, pitch: M.pitch, duration: 1200 });
+  const fs = SNAP.fire.findIndex(f => f.name === r.st.name), hs = SNAP.hospitals.findIndex(h => h.name === r.h.name);
+  $('rpm-from').selectedIndex = fs; $('rpm-to').selectedIndex = hs; $('rpm-run').disabled = !(r.n > 0);
+  $('rpm-routeOut').innerHTML = `<p class="rpm-note">Showing ${esc(r.st.name)} → ${esc(r.h.name)}: ${r.km} km, ${r.n ?? 'n/a'} speed bumps. Press Run RapidPass corridor to drive it.</p>`;
+}
+const COV = { polys: { 240: [], 360: [], 480: [] }, done: false };
+const covGeo = b => ({ type: 'FeatureCollection', features: COV.polys[b].map(ring => ({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } })) });
+function inRing(p, ring) { let ins = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1]; if ((yi > p[1]) !== (yj > p[1]) && p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi) ins = !ins } return ins }
+async function reachable(st, budget) {
+  if (M.key) { try { const r = await fetch(`${TT}/routing/1/calculateReachableRange/${st.lat},${st.lon}/json?key=${encodeURIComponent(M.key)}&timeBudgetInSec=${budget}&traffic=true&travelMode=car`);
+    if (r.ok) { const b = (await r.json()).reachableRange.boundary.map(p => [p.longitude, p.latitude]); if (b.length > 2) { b.push(b[0]); return { ring: b, real: true } } } } catch {} }
+  const rm = budget * 9.26, ring = circle(st.lon, st.lat, rm, 36)[0]; return { ring, real: false }; // modelled: 45 km/h average, 1.35 detour factor
+}
+function paintCoverage() {
+  ['480', '360', '240'].forEach(b => setData('cov' + b, covGeo(+b))); const on = $('rpm-covShow').checked; ['cov480', 'cov360', 'cov240'].forEach(id => vis(id, on));
+}
+async function computeCoverage() {
+  $('rpm-cov').disabled = true; COV.polys = { 240: [], 360: [], 480: [] }; let real = 0, total = 0;
+  try {
+    for (let i = 0; i < SNAP.fire.length; i++) { $('rpm-covState').textContent = `station ${i + 1} of ${SNAP.fire.length}…`;
+      for (const b of [240, 360, 480]) { const r = await reachable(SNAP.fire[i], b); COV.polys[b].push(r.ring); total++; if (r.real) real++ } }
+    paintCoverage();
+    // share of the urban core inside each budget, and hospitals outside the 8-minute reach
+    const cells = []; for (let x = 54.30; x <= 54.62; x += 0.008) for (let y = 24.38; y <= 24.56; y += 0.006) cells.push([x, y]);
+    const share = b => Math.round(cells.filter(c => COV.polys[b].some(r => inRing(c, r))).length / cells.length * 100);
+    const out = SNAP.hospitals.filter(h => !COV.polys[480].some(r => inRing([h.lon, h.lat], r)));
+    const s4 = share(240), s6 = share(360), s8 = share(480);
+    $('rpm-covOut').innerHTML = `<div class="rpm-kpis"><div class="rpm-kpi"><b>${s4}%</b><span>of the urban core within 4 min</span></div><div class="rpm-kpi"><b>${s6}%</b><span>within 6 min</span></div><div class="rpm-kpi"><b>${s8}%</b><span>within 8 min</span></div><div class="rpm-kpi"><b>${out.length}</b><span>hospitals outside 8 min of a station</span></div></div>
+      <p>${out.length ? 'Outside 8 min: ' + out.map(h => esc(h.name)).join(', ') + '.' : 'Every listed hospital is within 8 minutes of a civil defence station.'}</p>
+      <p class="rpm-note">${real === total ? 'Drive-time areas from TomTom with live traffic.' : real ? 'Part TomTom drive-time, part modelled (45 km/h average).' : 'Modelled from straight-line distance at 45 km/h with a 1.35 detour factor; add a TomTom key for real drive-time areas.'} Core area: 54.30 to 54.62 E, 24.38 to 24.56 N.</p>`;
+    $('rpm-covState').textContent = real ? 'TomTom' : 'modelled'; COV.done = true;
+  } catch (e) { $('rpm-covState').textContent = e.message }
+  $('rpm-cov').disabled = false;
+}
+$('rpm-league').onclick = rankCorridors; $('rpm-leagueTbl').addEventListener('click', e => { const t = e.target.closest('tr.rpm-tr'); if (t) showLeagueRoute(+t.dataset.i) });
+$('rpm-cov').onclick = computeCoverage; $('rpm-covShow').onchange = () => { if (map && COV.done) paintCoverage() };
 
 /* ---------- refresh / wiring ---------- */
 async function refreshLive(manual) {
