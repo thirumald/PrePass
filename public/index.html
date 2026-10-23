@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RapidPass</title>
+<style>
+:root{--bg:#0e1316;--panel:#151c20;--line:#26323a;--fg:#e4ecef;--muted:#8c9ca5;--amber:#f2b632;--teal:#38c6b2;--red:#ff5d52;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,sans-serif;padding:16px;max-width:1100px;margin-inline:auto}
+h1{font-size:22px;letter-spacing:.05em;text-transform:uppercase;margin:0 0 4px}h1 span{color:var(--amber)}
+.sub{color:var(--muted);margin:0 0 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+input,select,button{font:inherit;color:inherit;background:#1b2429;border:1px solid var(--line);border-radius:6px;padding:6px 9px}
+input,select{width:100%}
+button{cursor:pointer}button:hover{border-color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.inc{border-top:1px solid var(--line);padding:8px 0}
+.pill{display:inline-block;border:1px solid;border-radius:10px;padding:0 8px;font-size:12px}
+.ok{color:var(--teal)}.bad{color:var(--red)}.warn{color:var(--amber)}
+pre{margin:0;white-space:pre-wrap;word-break:break-all;font:12px ui-monospace,monospace;color:var(--muted);max-height:260px;overflow:auto}
+#verdict{font:600 15px ui-monospace,monospace;margin-top:10px;min-height:22px}
+</style>
+</head>
+<body>
+<h1>Rapid<span>Pass</span></h1>
+<p class="sub">Priority passes for emergency vehicles. Dispatch status decides; the edge verifies signature, counter and status.</p>
+<div class="grid">
+  <div class="card">
+    <h2>1 · Open incident</h2>
+    <label for="itype">Type</label><select id="itype"><option>medical</option><option>fire</option><option>police</option></select>
+    <label for="iloc">Location</label><input id="iloc" placeholder="Corniche Rd, Abu Dhabi">
+    <div class="row"><button id="newInc">Open incident</button></div>
+  </div>
+  <div class="card">
+    <h2>2 · Issue pass</h2>
+    <label for="pinc">Incident</label><select id="pinc"></select>
+    <label for="pplate">Plate</label><input id="pplate" value="H 8919">
+    <label for="pagency">Agency</label><input id="pagency" value="EMS">
+    <div class="row"><button id="issue">Issue pass</button></div>
+  </div>
+  <div class="card">
+    <h2>3 · Simulate vehicle at roadside unit</h2>
+    <label for="splate">Plate</label><input id="splate" value="H 8919">
+    <div class="row">
+      <button data-mode="valid">Valid message</button>
+      <button data-mode="replay">Replay it</button>
+      <button data-mode="forged">Forged credential</button>
+      <button data-mode="wrongkey">Wrong device key</button>
+    </div>
+    <div id="verdict"></div>
+  </div>
+</div>
+<div class="grid" style="margin-top:12px">
+  <div class="card"><h2>Incidents</h2><div id="incs"></div></div>
+  <div class="card"><h2>Audit log <span id="chain" class="pill"></span></h2><pre id="audit"></pre></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const api=async(p,b)=>{const r=await fetch(p,b===undefined?{}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});const j=await r.json();if(!r.ok)throw new Error(j.error);return j};
+const esc=s=>String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const guard=fn=>async(...a)=>{try{await fn(...a)}catch(e){$('verdict').innerHTML='<span class="bad">'+esc(e.message)+'</span>'}};
+async function refresh(){
+  const incs=await api('/api/incidents');
+  const sel=$('pinc'),cur=sel.value;
+  sel.innerHTML=incs.filter(i=>i.active).map(i=>`<option ${i.id===cur?'selected':''}>${esc(i.id)}</option>`).join('');
+  $('incs').innerHTML=incs.length?incs.slice().reverse().map(i=>`<div class="inc"><b>${esc(i.id)}</b> ${esc(i.type)} ${esc(i.location)}
+    <span class="pill ${i.active?'ok':'warn'}">${i.active?'active':'closed'}</span>
+    ${i.active?`<button data-close="${esc(i.id)}">Close</button>`:''}
+    ${i.vehicles.map(v=>`<div>${esc(v.plate)} · ${esc(v.agency)} · <select data-inc="${esc(i.id)}" data-plate="${esc(v.plate)}" ${i.active?'':'disabled'} style="width:auto">${['enroute','patient','returning','available'].map(s=>`<option ${s===v.status?'selected':''}>${s}</option>`).join('')}</select> ${v.revoked?'<span class="pill bad">revoked</span>':''}</div>`).join('')}</div>`).join(''):'<span class="sub">No incidents yet.</span>';
+  const a=await api('/api/audit');
+  $('chain').textContent=a.chain.ok?'chain ok':'chain BROKEN at '+a.chain.brokenAt;$('chain').className='pill '+(a.chain.ok?'ok':'bad');
+  $('audit').textContent=a.entries.map(e=>`#${e.seq} ${e.type} ${JSON.stringify(e.data)}`).join('\n');
+}
+$('newInc').onclick=guard(async()=>{await api('/api/incidents',{type:$('itype').value,location:$('iloc').value});await refresh()});
+$('issue').onclick=guard(async()=>{await api(`/api/incidents/${$('pinc').value}/vehicles`,{plate:$('pplate').value,agency:$('pagency').value});$('splate').value=$('pplate').value;await refresh()});
+document.querySelector('[data-mode]').parentElement.addEventListener('click',guard(async e=>{const b=e.target.closest('[data-mode]');if(!b)return;
+  const r=await api('/api/simulate',{plate:$('splate').value,mode:b.dataset.mode});
+  $('verdict').innerHTML=`<span class="${r.ok?'ok':'bad'}">${r.ok?'ACCEPTED':'REJECTED'} · ${esc(r.reason)}</span>${r.alert?' <span class="warn">· police alerted</span>':''}`;await refresh()}));
+$('incs').addEventListener('click',guard(async e=>{const c=e.target.closest('[data-close]');if(c){await api(`/api/incidents/${c.dataset.close}/close`,{});await refresh()}}));
+$('incs').addEventListener('change',guard(async e=>{const s=e.target.closest('select[data-plate]');if(s){await api(`/api/incidents/${s.dataset.inc}/status`,{plate:s.dataset.plate,status:s.value});await refresh()}}));
+guard(refresh)();
+</script>
+</body>
+</html>
