@@ -13,15 +13,19 @@ Priority-pass service for emergency vehicles, built to feed the smart speed brea
 
 Rejections with a forged credential, a wrong device key or a replay set `alert: true` so the caller can notify police.
 
-## Abu Dhabi map (GitHub Pages)
+## Operations console (GitHub Pages)
 
-`map.html` is a static 3D map of Abu Dhabi built with MapLibre and OpenFreeMap. It shows hospitals, civil defence stations, traffic jams, closures and roadworks, with 3D delay towers, plus OpenStreetMap speed bumps and a corridor planner that counts the bumps on a route and estimates the time a RapidPass corridor could save.
+`index.html` is one self-contained page with everything in it:
 
-- **Without a key** it shows a real snapshot in `data/snapshot.json`, captured from TomTom on 2026-10-23, clearly labelled as a snapshot.
-- **With a TomTom key** (pasted in the page, stored only in the browser) it switches to live incidents, a live traffic-flow layer, per-hospital speeds and traffic-aware routing, refreshing every 2 minutes.
-- Speed bumps come from OpenStreetMap through the Overpass API and may be incomplete.
+- **Live, Units, Incidents, Analytics, Alarms, Settings**: the operations console and its speed-breaker simulator.
+- **Map**: a 3D Abu Dhabi map (MapLibre and OpenFreeMap) with hospitals, civil defence stations, traffic jams, closures and roadworks, 3D delay towers, OpenStreetMap speed bumps, and all 37 use cases placed as data points. Each use-case popup shows the risk, the solution, real data found near the point, and a button that opens the matching scripted scenario in Live. The corridor planner routes between a station and a hospital, counts the speed bumps on the way, and can run a RapidPass corridor: a vehicle drives the route and the pass engine verifies it at every bump.
+- **Passes**: the signed-pass system running in the browser with WebCrypto: open an incident, issue a pass, simulate valid, replayed, forged or wrong-key messages, and read the hash-chained audit log.
 
-`passes.html` is a static copy of the pass system that runs in the browser with WebCrypto, so GitHub Pages can serve it. In the repo go to Settings, Pages, and set Source to "GitHub Actions". The workflow in `.github/workflows/deploy.yml` publishes `index.html`, `map.html`, `passes.html` and `data/` on every push to `main`. The Operations Console is at https://thirumald.github.io/RapidPass/, the Abu Dhabi map at https://thirumald.github.io/RapidPass/map.html and the pass demo at https://thirumald.github.io/RapidPass/passes.html. It needs a browser with Ed25519 in WebCrypto (current Chrome, Edge, Firefox, or Safari 17+).
+Traffic data: a real TomTom snapshot (2026-10-23) is embedded. With a TomTom key the Map switches to live incidents, a live traffic-flow layer, per-hospital speeds and traffic-aware routing. A public demo key is built in; paste your own in the Map panel to override it, or open `#key=YOUR_KEY` once.
+
+Speed bumps come from OpenStreetMap through the Overpass API and may be incomplete. Use-case markers sit at illustrative sites. It needs a browser with Ed25519 in WebCrypto (current Chrome, Edge, Firefox, or Safari 17+).
+
+To publish: Settings, Pages, Source "GitHub Actions". `.github/workflows/deploy.yml` publishes `index.html` on every push to `main`. The site is at https://thirumald.github.io/RapidPass/.
 
 ## Run the Node server
 

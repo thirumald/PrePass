@@ -1,6 +1,7 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>RapidPass Operations Console</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -149,6 +150,53 @@ h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.
 .actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
 .toast{color:var(--ok);font-size:13px}
 </style>
+<style>
+/* ===== Map + Passes views (added) ===== */
+.rpm-grid{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:12px;align-items:start}
+@media (max-width:1180px){.rpm-grid{grid-template-columns:minmax(0,1fr)}}
+.rpm-mapwrap{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;height:calc(100vh - 150px);min-height:520px;background:#0e1519}
+@media (max-width:1180px){.rpm-mapwrap{height:62vh;min-height:380px}}
+#rpm-map{position:absolute;inset:0}
+.rpm-side{display:flex;flex-direction:column;gap:12px;min-width:0}
+@media (min-width:1181px){.rpm-side{max-height:calc(100vh - 150px);overflow-y:auto;padding-right:4px}}
+.rpm-legend{position:absolute;left:10px;bottom:28px;background:rgba(11,16,19,.88);border:1px solid var(--line2);border-radius:8px;padding:7px 10px;font-size:12px;z-index:2;max-width:240px}
+.rpm-legend div{display:flex;align-items:center;gap:7px;margin:2px 0}
+.rpm-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+.rpm-note{font-size:12px;color:var(--muted)}
+.rpm-err{color:var(--red);font-size:12.5px}
+.rpm-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.rpm-in{width:100%;background:var(--raise);border:1px solid var(--line2);border-radius:7px;padding:6px 9px;color:var(--fg)}
+.rpm-lbl{display:block;font-size:12px;color:var(--muted);margin:9px 0 3px}
+.rpm-kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rpm-kpi{background:#151f24;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.rpm-kpi b{display:block;font-family:var(--display);font-size:24px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.rpm-kpi span{font-size:11.5px;color:var(--muted)}
+.rpm-find{margin:0;padding-left:18px;font-size:13px}.rpm-find li{margin:4px 0}
+.rpm-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.rpm-chip{border:1px solid var(--line2);background:var(--raise);color:var(--fg);border-radius:999px;padding:2px 10px;font-size:12px;cursor:pointer}
+.rpm-chip[aria-pressed=true]{border-color:var(--amber);color:var(--amber)}
+.rpm-uclist{max-height:260px;overflow-y:auto;border:1px solid var(--line);border-radius:8px}
+.rpm-uc-row{display:grid;grid-template-columns:34px 1fr;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line);cursor:pointer;font-size:12.5px;align-items:center}
+.rpm-uc-row:hover{background:#141e23}.rpm-uc-row:last-child{border-bottom:0}
+.rpm-uc-row small{display:block;color:var(--muted);font-size:11.5px}
+.rpm-ucm{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:600 11px var(--mono);color:#0b1013;border:2px solid #0b1013;box-shadow:0 0 0 2px var(--c,#f2b632),0 2px 8px rgba(0,0,0,.5);background:var(--c,#f2b632);cursor:pointer;transition:transform .12s}
+.rpm-ucm:hover,.rpm-ucm.sel{transform:scale(1.25);z-index:3}
+.rpm-veh{width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid #ff3b30;box-shadow:0 0 0 3px rgba(91,147,255,.7),0 0 14px #ff3b30;animation:rpmp .8s infinite alternate}
+@keyframes rpmp{to{box-shadow:0 0 0 6px rgba(255,59,48,.5),0 0 22px #5b93ff}}
+@media (prefers-reduced-motion:reduce){.rpm-veh{animation:none}}
+.rpm-tbl-wrap{overflow-x:auto}
+.rpm-bar{height:6px;border-radius:3px;background:#26323a;overflow:hidden;min-width:48px;margin-top:3px}.rpm-bar i{display:block;height:100%;background:var(--amber)}
+.rpm-tr{cursor:pointer}
+.rpm-pop b{font-weight:600}.rpm-pop p{margin:4px 0}.rpm-pop .rpm-btn{margin-top:6px}
+.maplibregl-popup-content{background:#121a1f!important;color:var(--fg)!important;border:1px solid #30404a;font:13px/1.4 var(--body);padding:10px 12px!important;border-radius:8px!important;max-width:300px}
+.maplibregl-popup-tip{border-top-color:#121a1f!important;border-bottom-color:#121a1f!important}
+.maplibregl-ctrl-attrib{font-size:10px}
+.rpp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:12px}
+.rpp-verdict{font:600 15px var(--mono);margin-top:10px;min-height:22px}
+.rpp-inc{border-top:1px solid var(--line);padding:8px 0;font-size:13px}
+.rpp-pre{margin:0;white-space:pre-wrap;word-break:break-all;font:12px var(--mono);color:var(--muted);max-height:280px;overflow:auto}
+.rpm-ok{color:var(--ok)}.rpm-bad{color:var(--red)}.rpm-warn{color:var(--amber)}
+</style>
 
 <div class="app">
   <header class="top">
@@ -172,6 +220,8 @@ h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.
     <button class="nav" data-view="analytics" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Analytics</button>
     <button class="nav" data-view="alarms" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4z"/><path d="M10 20h4"/></svg>Alarms<span class="cnt" id="alarmCnt" hidden>0</span></button>
     <button class="nav" data-view="settings" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Settings</button>
+    <button class="nav" data-view="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-6-5.5-6-10a6 6 0 0112 0c0 4.5-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>Map</button>
+    <button class="nav" data-view="passes" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>Passes</button>
   </nav>
 
   <main>
@@ -255,6 +305,72 @@ h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.
       <div class="vhead"><div><h2 class="vt">Controller settings</h2><p>Parameters pushed to every unit's edge controller. Applying restarts the running scenario with the new values.</p></div></div>
       <div class="form" id="form"></div>
       <div class="actions"><button class="btn primary" id="apply" type="button">Apply to units</button><button class="btn" id="defaults" type="button">Restore defaults</button><span class="toast" id="toast" hidden>Applied. Scenario restarted with new settings.</span></div>
+    </section>
+
+    <!-- MAP -->
+    <section class="view" id="v-map" hidden>
+      <div class="vhead"><div><h2 class="vt">Abu Dhabi map</h2><p>Live traffic, incidents, hospitals, civil defence and speed bumps in 3D, with the 37 use cases placed at the sites where they matter.</p></div><span class="badge" id="rpm-badge"><i></i><span id="rpm-badgeText">Loading…</span></span></div>
+      <div class="rpm-grid">
+        <div class="rpm-mapwrap"><div id="rpm-map"></div>
+          <div class="rpm-legend" id="rpm-legend"></div></div>
+        <div class="rpm-side">
+          <div class="card"><h3>Data source</h3><div class="rpm-note" id="rpm-srcNote"></div>
+            <label class="rpm-lbl" for="rpm-key">TomTom API key (a built-in key is used unless you paste your own)</label>
+            <input class="rpm-in" type="password" id="rpm-key" placeholder="paste key" autocomplete="off">
+            <div class="rpm-row"><button class="btn primary" id="rpm-keySave" type="button">Use key</button><button class="btn" id="rpm-keyClear" type="button">Offline snapshot</button><button class="btn" id="rpm-refresh" type="button">Refresh</button></div>
+            <div class="rpm-err" id="rpm-err"></div></div>
+          <div class="card"><h3>Network now <span class="rpm-note" id="rpm-netTime"></span></h3><div class="rpm-kpis" id="rpm-kpis"></div><ul class="rpm-find" id="rpm-finds" style="margin-top:10px"></ul></div>
+          <div class="card"><h3>Use cases on the map <span class="rpm-note" id="rpm-ucCount"></span></h3>
+            <div class="rpm-chips" id="rpm-ucFilter"></div>
+            <div class="rpm-uclist" id="rpm-ucList"></div>
+            <div class="rpm-note" style="margin-top:6px">Markers sit at illustrative sites near real hospitals, civil defence stations and roads. Each popup adds real data found near the point and, where one exists, opens the matching scripted scenario in Live.</div></div>
+          <div class="card"><h3>Corridor planner <span class="rpm-note">route · bumps · RapidPass run</span></h3>
+            <label class="rpm-lbl" for="rpm-from">From</label><select class="sel rpm-in" id="rpm-from"></select>
+            <label class="rpm-lbl" for="rpm-to">To (hospital)</label><select class="sel rpm-in" id="rpm-to"></select>
+            <label class="rpm-lbl" for="rpm-sec">Delay per speed bump: <b id="rpm-secv">5</b> s <span class="rpm-note">(research: up to about 9 s for fire trucks; offset tables 1 to 2 s)</span></label>
+            <input type="range" id="rpm-sec" min="1" max="9" step="1" value="5" style="width:100%;accent-color:var(--amber)">
+            <label class="rpm-lbl" for="rpm-beh">Vehicle behaviour for the run</label>
+            <select class="sel rpm-in" id="rpm-beh"><option value="genuine">Genuine ambulance, patient on board</option><option value="returning">Returning to station, no priority (E7)</option><option value="clone">Cloned tag (S2)</option><option value="replay">Replayed message (S3)</option></select>
+            <div class="rpm-row"><button class="btn primary" id="rpm-plan" type="button">Plan route</button><button class="btn" id="rpm-run" type="button" disabled>Run RapidPass corridor</button><button class="btn" id="rpm-stop" type="button" disabled>Stop</button><button class="btn" id="rpm-green" type="button">Open green corridor in Live</button></div>
+            <div id="rpm-routeOut" class="rpm-note" style="margin-top:8px"></div></div>
+          <div class="card"><h3>Hospital access <span class="rpm-note" id="rpm-bumpState"></span></h3><div class="rpm-tbl-wrap"><table class="tbl" id="rpm-hosp"></table></div>
+            <div class="rpm-note" style="margin-top:6px">Speed bumps come from OpenStreetMap and may be incomplete. Counts are within 1 km, so they are an upper bound for any one approach.</div></div>
+          <div class="card"><h3>Layers</h3>
+            <label style="display:flex;gap:8px;margin:5px 0"><input type="checkbox" data-l="uc" checked> Use-case markers</label>
+            <label style="display:flex;gap:8px;margin:5px 0"><input type="checkbox" data-l="flow"> Live traffic flow <span class="rpm-note" id="rpm-flowNote"></span></label>
+            <label style="display:flex;gap:8px;margin:5px 0"><input type="checkbox" data-l="inc" checked> Incidents (jam, closed, roadworks)</label>
+            <label style="display:flex;gap:8px;margin:5px 0"><input type="checkbox" data-l="towers" checked> 3D delay towers</label>
+            <label style="display:flex;gap:8px;margin:5px 0"><input type="checkbox" data-l="places" checked> Hospitals and civil defence</label>
+            <label style="display:flex;gap:8px;margin:5px 0"><input type="checkbox" data-l="bumps" checked> Speed bumps (OpenStreetMap)</label>
+            <label style="display:flex;gap:8px;margin:5px 0"><input type="checkbox" data-l="b3d" checked> 3D buildings</label>
+            <div class="rpm-row"><button class="btn" id="rpm-tilt" type="button">Flat / 3D</button><button class="btn" id="rpm-reset" type="button">Reset view</button><button class="btn" id="rpm-style" type="button">Light / grey map</button></div></div>
+          <div class="rpm-note">Map: OpenFreeMap and OpenStreetMap contributors. Traffic, places and routing: TomTom. Routes without a key use the free OSRM demo server.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PASSES -->
+    <section class="view" id="v-passes" hidden>
+      <div class="vhead"><div><h2 class="vt">Passes</h2><p>Signed priority passes for emergency vehicles. Dispatch status decides; the edge verifies signature, counter and status. Runs in your browser with WebCrypto, nothing is sent anywhere.</p></div><span class="badge" id="rpp-chain"><i></i>Audit chain</span></div>
+      <div class="rpp-grid">
+        <div class="card"><h3>1 · Open incident</h3>
+          <label class="rpm-lbl" for="rpp-type">Type</label><select class="sel rpm-in" id="rpp-type"><option>medical</option><option>fire</option><option>police</option></select>
+          <label class="rpm-lbl" for="rpp-loc">Location</label><input class="rpm-in" id="rpp-loc" placeholder="Corniche Rd, Abu Dhabi">
+          <div class="rpm-row"><button class="btn primary" id="rpp-new" type="button">Open incident</button></div></div>
+        <div class="card"><h3>2 · Issue pass</h3>
+          <label class="rpm-lbl" for="rpp-inc">Incident</label><select class="sel rpm-in" id="rpp-inc"></select>
+          <label class="rpm-lbl" for="rpp-plate">Plate</label><input class="rpm-in" id="rpp-plate" value="H 8919">
+          <label class="rpm-lbl" for="rpp-agency">Agency</label><input class="rpm-in" id="rpp-agency" value="EMS">
+          <div class="rpm-row"><button class="btn primary" id="rpp-issue" type="button">Issue pass</button></div></div>
+        <div class="card"><h3>3 · Simulate vehicle at a roadside unit</h3>
+          <label class="rpm-lbl" for="rpp-splate">Plate</label><input class="rpm-in" id="rpp-splate" value="H 8919">
+          <div class="rpm-row" id="rpp-modes"><button class="btn" data-mode="valid" type="button">Valid message</button><button class="btn" data-mode="replay" type="button">Replay it</button><button class="btn" data-mode="forged" type="button">Forged credential</button><button class="btn" data-mode="wrongkey" type="button">Wrong device key</button></div>
+          <div class="rpp-verdict" id="rpp-verdict"></div></div>
+      </div>
+      <div class="rpp-grid" style="margin-top:12px">
+        <div class="card"><h3>Incidents</h3><div id="rpp-incs"></div></div>
+        <div class="card"><h3>Audit log <span class="rpm-note">hash-chained</span></h3><pre class="rpp-pre" id="rpp-audit"></pre></div>
+      </div>
     </section>
   </main>
 </div>
@@ -795,12 +911,13 @@ $('defaults').onclick=()=>{draft={...DEF};renderForm()};
 
 /* ================= shell ================= */
 let view='live';
-const VIEWS=['live','units','incidents','analytics','alarms','settings'];
+const VIEWS=['live','units','incidents','analytics','alarms','settings','map','passes'];
 function show(v){view=VIEWS.includes(v)?v:'live';VIEWS.forEach(x=>{$('v-'+x).hidden=x!==view});
   document.querySelectorAll('.nav').forEach(b=>b.setAttribute('aria-current',b.dataset.view===view?'page':'false'));
   if(view==='live')requestAnimationFrame(()=>{resize()});
   if(view==='analytics')requestAnimationFrame(draw2);
   if(view==='alarms')renderAlarms();if(view==='settings'){draft={...cfg};renderForm()}
+  if(view==='map'&&window.RPMap)window.RPMap.activate();if(view==='passes'&&window.RPPasses)window.RPPasses.activate();
   panels()}
 document.querySelector('.rail').addEventListener('click',e=>{const b=e.target.closest('.nav');if(!b)return;try{history.replaceState(null,'','#'+b.dataset.view)}catch(_){}show(b.dataset.view)});
 $('scenario').innerHTML=SC.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
@@ -828,6 +945,7 @@ function frame(now){
   }
   requestAnimationFrame(frame);
 }
+window.RPConsole={load:id=>{load(id);setPlaying(true);try{history.replaceState(null,'','#live')}catch(_){}show('live')},show};
 load('emergency');
 show((location.hash||'').slice(1)||'live');
 if(matchMedia('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<60*10;i++)step(1/60);setPlaying(false);panels();draw();xsDraw();hChart()}
@@ -835,4 +953,416 @@ requestAnimationFrame(frame);
 })();
 </script>
 
+<script type="application/json" id="rp-snapshot">{"capturedAt":"2026-10-23T18:11:54Z","source":"TomTom Traffic Incidents and Routing APIs, via TomTom Maps connector; places from TomTom POI search","note":"Snapshot of real data captured once. Add a TomTom key in the page to replace it with live data.","hospitals":[{"name":"Cleveland Clinic Abu Dhabi","lon":54.387985,"lat":24.497277,"major":true},{"name":"Sheikh Khalifa Medical City (ER)","lon":54.3663,"lat":24.4672,"major":true},{"name":"Zayed Military Hospital","lon":54.431326,"lat":24.42087,"major":true},{"name":"Mediclinic Airport Road Hospital","lon":54.46195,"lat":24.41671,"major":true},{"name":"Burjeel Hospital","lon":54.3923,"lat":24.4555,"major":true},{"name":"Danat Al Emarat Hospital for Women & Children","lon":54.5011,"lat":24.3967,"major":true},{"name":"NMC Royal Hospital Khalifa City","lon":54.5714,"lat":24.412,"major":true},{"name":"Burjeel Medical City","lon":54.539518,"lat":24.354065,"major":true},{"name":"Mafraq Hospital","lon":54.613383,"lat":24.329066,"major":true},{"name":"Sheikh Shakhbout Medical City","lon":54.613863,"lat":24.327369,"major":true},{"name":"Emirates French Hospital","lon":54.3603,"lat":24.4932,"major":false},{"name":"NMC Specialty Hospital","lon":54.3616,"lat":24.4825,"major":false},{"name":"Al Manara International Hospital","lon":54.3558,"lat":24.4794,"major":false},{"name":"Mediclinic Al Bateen","lon":54.3533,"lat":24.4591,"major":false},{"name":"Khalid International Hospital","lon":54.3494,"lat":24.4554,"major":false}],"fire":[{"name":"Yas Civil Defence","lon":54.6028,"lat":24.4936},{"name":"Civil Defence Technical Affairs (As Saadah)","lon":54.4186,"lat":24.4339},{"name":"Abu Dhabi Civil Defence (Al Sammaliyyah)","lon":54.565558,"lat":24.446899},{"name":"Civil Defence (Al Hisn)","lon":54.350019,"lat":24.481674},{"name":"Civil Defence Al Zaab","lon":54.3582,"lat":24.4621},{"name":"Almuntab Fire Station (Al Bateen)","lon":54.339949,"lat":24.466566},{"name":"Technical Rescue and Rapid Intervention, Khalifa City","lon":54.5638,"lat":24.4234},{"name":"Saadiyat Civil Defence","lon":54.4134,"lat":24.531},{"name":"Civil Defence Sas Al Nakhl","lon":54.5051,"lat":24.4212},{"name":"Civil Defence Rabdan","lon":54.5066,"lat":24.4065},{"name":"Civil Defence Authority HQ (Al Danah)","lon":54.373183,"lat":24.474623}],"routes":[{"from":"Civil Defence Al Zaab","to":"Cleveland Clinic Abu Dhabi","lengthM":7060,"liveS":970,"delayS":0,"historicalS":942},{"from":"Saadiyat Civil Defence","to":"Cleveland Clinic Abu Dhabi","lengthM":7484,"liveS":770,"delayS":0,"historicalS":null},{"from":"Civil Defence Rabdan","to":"Zayed Military Hospital","lengthM":9944,"liveS":746,"delayS":0,"historicalS":null},{"from":"Technical Rescue, Khalifa City","to":"Zayed Military Hospital","lengthM":19422,"liveS":1153,"delayS":0,"historicalS":null},{"from":"Civil Defence Authority HQ (Al Danah)","to":"Mafraq Hospital","lengthM":37892,"liveS":1926,"delayS":0,"historicalS":null},{"from":"Civil Defence Sas Al Nakhl","to":"Burjeel Medical City","lengthM":11769,"liveS":741,"delayS":0,"historicalS":null}],"incidents":[{"cat":"closed","mag":"closed","delay":0,"len":90,"from":"شارع الملك عبدالله بن عبدالعزيز ال سعود","to":"شارع الملك عبدالله بن عبدالعزيز ال سعود / شارع عتيق بن ماجد المهيري","road":"","events":["Closed"],"geom":[[54.33938,24.4569],[54.3393,24.45689],[54.33923,24.45688],[54.33922,24.45688],[54.33914,24.45688],[54.33906,24.45689],[54.33898,24.4569],[54.33867,24.45698],[54.33863,24.45699],[54.33858,24.45699],[54.33851,24.45701]]},{"cat":"jam","mag":"major","delay":88,"len":73,"from":"شارع جرش","to":"شارِع زَايِد الأَوَّل","road":"","events":["Stationary traffic"],"geom":[[54.34875,24.47323],[54.34842,24.4736],[54.34841,24.47362],[54.3484,24.47364],[54.34839,24.47367],[54.34839,24.47377]]},{"cat":"closed","mag":"closed","delay":0,"len":102,"from":"شارِع الشَّادِيّ","to":"شارِع سُلْطان بِنْ زَايِد الأَوَّل / شارع الجيون","road":"","events":["Closed"],"geom":[[54.36234,24.48615],[54.36227,24.48624],[54.3618,24.4868],[54.36173,24.48688]]},{"cat":"jam","mag":"major","delay":65,"len":45,"from":"شارِع حَمْدان بِنْ مُحَمَّد","to":"شارع سلطان بن زايد الأول","road":"","events":["Stationary traffic"],"geom":[[54.36314,24.4896],[54.36323,24.4896],[54.36329,24.48959],[54.36337,24.48958],[54.36342,24.48956],[54.36348,24.48954],[54.36356,24.48949]]},{"cat":"jam","mag":"major","delay":201,"len":151,"from":"شارع الخليل","to":"شارِع زَايِد الأَوَّل","road":"","events":["Stationary traffic"],"geom":[[54.36369,24.48387],[54.36365,24.48392],[54.3636,24.48398],[54.36359,24.484],[54.36357,24.48403],[54.36356,24.48405],[54.36353,24.48406],[54.36351,24.48407],[54.36333,24.48413],[54.3633,24.48414],[54.36326,24.48416],[54.36323,24.48417],[54.3632,24.48419],[54.36316,24.48422],[54.36312,24.48425],[54.36308,24.4843],[54.36303,24.48434],[54.36295,24.48443],[54.36272,24.4846],[54.36267,24.48461],[54.36263,24.48463],[54.3626,24.48466],[54.36256,24.4847]]},{"cat":"closed","mag":"closed","delay":0,"len":103,"from":"شارِع السُّهَيْلِيّ","to":"شارع ماء الورد","road":"","events":["Closed"],"geom":[[54.36471,24.47006],[54.36476,24.47007],[54.36481,24.47008],[54.36486,24.47009],[54.36491,24.4701],[54.36501,24.4701],[54.36507,24.4701],[54.36512,24.4701],[54.36518,24.47011],[54.36523,24.47012],[54.36571,24.4702]]},{"cat":"closed","mag":"closed","delay":0,"len":108,"from":"شارع ماء الورد","to":"شارِع السُّهَيْلِيّ","road":"","events":["Closed"],"geom":[[54.36571,24.4702],[54.36523,24.47012],[54.36518,24.47011],[54.36512,24.4701],[54.36507,24.4701],[54.36501,24.4701],[54.36491,24.4701],[54.36486,24.47012],[54.3648,24.47014],[54.36475,24.47016],[54.36469,24.4702]]},{"cat":"closed","mag":"closed","delay":0,"len":145,"from":"شارع السعداء","to":"شارع الهتان","road":"","events":["Closed"],"geom":[[54.36712,24.47074],[54.36698,24.47138],[54.36698,24.47138],[54.36697,24.47142],[54.36684,24.47202]]},{"cat":"closed","mag":"closed","delay":0,"len":145,"from":"شارِع الشَّيْخ رَاشِد بِنْ سَعِيد / شارع حضرة غميس","to":"شارِع هَزَّاع بِنْ زَايِد الأَوَّل","road":"","events":["Closed"],"geom":[[54.36684,24.47202],[54.36697,24.47142],[54.36698,24.47138],[54.36698,24.47138],[54.36712,24.47074]]},{"cat":"jam","mag":"minor","delay":188,"len":1236,"from":"شارِع سُلْطان بِنْ زَايِد الأَوَّل","to":"شارِع الشَّيْخ زَايِد بِنْ سُلْطان","road":"7","events":["Slow traffic"],"geom":[[54.36525,24.4873],[54.36559,24.48755],[54.3658,24.4877],[54.36644,24.48815],[54.36715,24.48865],[54.36719,24.48868],[54.36723,24.48871],[54.36738,24.48882],[54.36765,24.48901],[54.36782,24.48914],[54.36805,24.4893],[54.36805,24.4893],[54.36874,24.48979],[54.36938,24.49024],[54.36954,24.49036],[54.3696,24.4904],[54.36962,24.49042],[54.36972,24.49049],[54.36975,24.49051],[54.36976,24.49052],[54.36977,24.49053],[54.36985,24.49057],[54.36991,24.49061],[54.37006,24.49072],[54.37014,24.49078],[54.37021,24.49082],[54.37051,24.49104],[54.37156,24.49179],[54.37167,24.49186],[54.3719,24.49202],[54.37219,24.49222],[54.37311,24.49288],[54.37356,24.49319],[54.37376,24.49333],[54.37416,24.49362],[54.37451,24.49388],[54.37477,24.49406],[54.37481,24.49408],[54.37482,24.49409],[54.37489,24.49414]]},{"cat":"jam","mag":"major","delay":223,"len":213,"from":"أبوظبي","to":"شارع محضر الميل","road":"","events":["Stationary traffic"],"geom":[[54.37753,24.45776],[54.3785,24.45684],[54.37855,24.45683],[54.3786,24.45684],[54.37865,24.45685],[54.3787,24.45686],[54.37874,24.45688],[54.37878,24.45691],[54.37907,24.45716]]},{"cat":"closed","mag":"closed","delay":0,"len":70,"from":"شارِع الشَّيْخ رَاشِد بِنْ سَعِيد","to":"شارع المهذم","road":"","events":["Closed"],"geom":[[54.37948,24.46076],[54.37947,24.46068],[54.37945,24.4606],[54.37944,24.46055],[54.3791,24.46027]]},{"cat":"closed","mag":"closed","delay":0,"len":68,"from":"شارع المهذم","to":"شارِع الشَّيْخ رَاشِد بِنْ سَعِيد","road":"","events":["Closed"],"geom":[[54.3791,24.46027],[54.37944,24.46055],[54.3795,24.46057],[54.37955,24.46058],[54.37965,24.46058]]},{"cat":"jam","mag":"major","delay":178,"len":174,"from":"شارع سلامة بنت بطي","to":"شارع دهان","road":"","events":["Stationary traffic"],"geom":[[54.40488,24.44487],[54.40467,24.4451],[54.40423,24.44556],[54.40422,24.44557],[54.40376,24.44606]]},{"cat":"closed","mag":"closed","delay":0,"len":187,"from":"أبوظبي","to":"شارع جاك شيراك","road":"","events":["Closed"],"geom":[[54.40719,24.52958],[54.40715,24.5296],[54.40711,24.52961],[54.40708,24.52963],[54.40704,24.52966],[54.40704,24.52966],[54.40701,24.52968],[54.40656,24.53026],[54.4065,24.53035],[54.40711,24.53074]]},{"cat":"closed","mag":"closed","delay":0,"len":236,"from":"شارع جاك شيراك","to":"شارع جاك شيراك","road":"","events":["Closed"],"geom":[[54.40634,24.5289],[54.4066,24.52906],[54.40665,24.52909],[54.40709,24.52938],[54.40726,24.5295],[54.40735,24.52955],[54.40737,24.52956],[54.4074,24.52959],[54.40743,24.52962],[54.40746,24.52964],[54.40749,24.52966],[54.40751,24.52967],[54.40752,24.52968],[54.40752,24.5297],[54.40752,24.52971],[54.40751,24.52972],[54.40749,24.52973],[54.40748,24.52973],[54.40746,24.52972],[54.40743,24.52971],[54.4074,24.52969],[54.40737,24.52968],[54.40734,24.52967],[54.40731,24.52966],[54.40719,24.52958],[54.40706,24.52949],[54.40682,24.52934]]},{"cat":"closed","mag":"closed","delay":0,"len":204,"from":"شارع جاك شيراك","to":"شارع جاك شيراك","road":"","events":["Closed"],"geom":[[54.40948,24.5311],[54.40946,24.53109],[54.40938,24.53103],[54.40936,24.53102],[54.40929,24.53098],[54.40874,24.53061],[54.4086,24.53052],[54.40839,24.53038],[54.40807,24.53016],[54.40804,24.53014],[54.40801,24.53012],[54.40794,24.53008],[54.4079,24.53005],[54.40785,24.53001]]},{"cat":"closed","mag":"closed","delay":0,"len":192,"from":"شارع جاك شيراك","to":"شارع جاك شيراك","road":"","events":["Closed"],"geom":[[54.40793,24.52991],[54.40799,24.52994],[54.40803,24.52997],[54.40813,24.53003],[54.40868,24.53038],[54.40878,24.53044],[54.4094,24.53083],[54.4094,24.53083],[54.40949,24.53089]]},{"cat":"closed","mag":"closed","delay":0,"len":292,"from":"شارع جاك شيراك","to":"شارع جاك شيراك","road":"","events":["Closed"],"geom":[[54.40949,24.53089],[54.40957,24.53094],[54.40959,24.53096],[54.40969,24.53102],[54.41049,24.53154],[54.41055,24.53158],[54.41067,24.53166],[54.41116,24.532],[54.41139,24.53216],[54.41147,24.53223],[54.41155,24.53231],[54.41155,24.53232],[54.41162,24.53241],[54.41171,24.53254]]},{"cat":"closed","mag":"closed","delay":0,"len":86,"from":"أبوظبي","to":"شارع الشهيد علي خليفة المسماري / شارع علي خليفة المسماري","road":"","events":["Closed"],"geom":[[54.41417,24.48012],[54.41414,24.48021],[54.41411,24.48034],[54.41409,24.48044],[54.41409,24.48045],[54.41406,24.48053],[54.41403,24.4806],[54.41398,24.48069],[54.41389,24.48084]]},{"cat":"closed","mag":"closed","delay":0,"len":372,"from":"شارع علي خليفة المسماري","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.41232,24.48298],[54.41251,24.48278],[54.41264,24.48263],[54.41275,24.48252],[54.41276,24.48251],[54.41276,24.4825],[54.4128,24.48247],[54.41291,24.48231],[54.41297,24.48222],[54.41303,24.48212],[54.41306,24.48208],[54.41312,24.48198],[54.41324,24.48178],[54.41332,24.48165],[54.41333,24.48162],[54.41374,24.48086],[54.41384,24.48068],[54.41393,24.48053],[54.41396,24.48048],[54.41399,24.48041],[54.41401,24.48035],[54.41404,24.48029],[54.41407,24.48024],[54.4141,24.48019],[54.41417,24.48012]]},{"cat":"closed","mag":"closed","delay":0,"len":138,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.41443,24.53641],[54.41445,24.53639],[54.41446,24.53636],[54.41447,24.53634],[54.41448,24.53632],[54.41449,24.5363],[54.41449,24.53627],[54.41448,24.53524],[54.41448,24.53518]]},{"cat":"works","mag":"unknown","delay":0,"len":165,"from":"أبوظبي","to":"شارع لفان","road":"","events":["Roadworks","New roadworks layout"],"geom":[[54.41461,24.53638],[54.41487,24.53634],[54.41511,24.53631],[54.4152,24.5363],[54.41622,24.53615]]},{"cat":"works","mag":"unknown","delay":0,"len":101,"from":"أبوظبي","to":"شارع لفان","road":"","events":["Roadworks","New roadworks layout"],"geom":[[54.41997,24.53561],[54.41999,24.53559],[54.42008,24.53548],[54.42019,24.53533],[54.42035,24.53505],[54.42037,24.53503],[54.42042,24.53492],[54.42048,24.53483]]},{"cat":"works","mag":"unknown","delay":0,"len":383,"from":"شارع السعديات","to":"أبوظبي","road":"","events":["Roadworks","New roadworks layout"],"geom":[[54.43628,24.53194],[54.43612,24.53208],[54.43599,24.53217],[54.43592,24.53221],[54.43579,24.53228],[54.43551,24.53243],[54.43534,24.53251],[54.43461,24.53289],[54.43455,24.53291],[54.43441,24.53296],[54.43431,24.533],[54.43414,24.53307],[54.43409,24.53308],[54.43405,24.5331],[54.43392,24.53315],[54.43362,24.53325],[54.43343,24.53331],[54.43316,24.53338],[54.43291,24.53343]]},{"cat":"works","mag":"unknown","delay":0,"len":305,"from":"أبوظبي","to":"شارع السعديات","road":"","events":["Roadworks","New roadworks layout"],"geom":[[54.43443,24.5327],[54.43517,24.53237],[54.43527,24.53232],[54.43537,24.53227],[54.43566,24.53212],[54.43576,24.53208],[54.43603,24.53192],[54.4361,24.53186],[54.43611,24.53186],[54.43617,24.5318],[54.43629,24.53168],[54.43642,24.53149],[54.43653,24.53128],[54.43662,24.53111],[54.43664,24.53108],[54.43664,24.53107],[54.43667,24.53101]]},{"cat":"closed","mag":"closed","delay":0,"len":477,"from":"شارع المؤتمرات","to":"شارع الملتقى","road":"","events":["Closed"],"geom":[[54.43843,24.41693],[54.438,24.41705],[54.43499,24.41789],[54.43399,24.41818],[54.43393,24.41819]]},{"cat":"closed","mag":"closed","delay":0,"len":122,"from":"شارع الظبياني","to":"شارع طنب الكبرى","road":"","events":["Closed"],"geom":[[54.44228,24.42383],[54.44289,24.42374],[54.44307,24.42372],[54.44333,24.42368],[54.44344,24.42367],[54.44347,24.42366]]},{"cat":"jam","mag":"minor","delay":86,"len":364,"from":"شارع المترفة","to":"أبوظبي","road":"","events":["Slow traffic"],"geom":[[54.44944,24.4257],[54.44904,24.42579],[54.44858,24.4259],[54.44688,24.42628],[54.44631,24.42641],[54.44625,24.42643],[54.44616,24.42647],[54.44613,24.4265],[54.44611,24.42651],[54.44606,24.42654],[54.446,24.42658]]},{"cat":"jam","mag":"major","delay":281,"len":123,"from":"أبوظبي","to":"شارع نسيم البر","road":"","events":["Stationary traffic"],"geom":[[54.4775,24.32068],[54.47746,24.32145],[54.47744,24.32179]]},{"cat":"closed","mag":"closed","delay":0,"len":204,"from":"أبوظبي","to":"شارِع 18","road":"","events":["Closed"],"geom":[[54.47941,24.32845],[54.4784,24.32841],[54.47773,24.32839],[54.47753,24.32844],[54.47742,24.32848]]},{"cat":"closed","mag":"closed","delay":0,"len":207,"from":"شارع نسيم البر","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.47741,24.32824],[54.47755,24.32832],[54.47773,24.32839],[54.4784,24.32841],[54.47941,24.32845]]},{"cat":"closed","mag":"closed","delay":0,"len":323,"from":"شارع المحضر","to":"شارع المحضر","road":"","events":["Closed"],"geom":[[54.49079,24.29113],[54.4886,24.28918],[54.48852,24.2891]]},{"cat":"closed","mag":"closed","delay":0,"len":323,"from":"شارع المحضر","to":"شارع المحضر","road":"","events":["Closed"],"geom":[[54.4886,24.28903],[54.48869,24.28911],[54.48889,24.28929],[54.49054,24.29079],[54.49086,24.29108]]},{"cat":"closed","mag":"closed","delay":0,"len":75,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.49535,24.51507],[54.49578,24.51508],[54.49582,24.51508],[54.49586,24.51508],[54.49591,24.51506],[54.49595,24.51504],[54.49599,24.51501],[54.49602,24.51498],[54.49604,24.51495]]},{"cat":"closed","mag":"closed","delay":0,"len":75,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.49604,24.51495],[54.49602,24.51498],[54.49599,24.51501],[54.49595,24.51504],[54.49591,24.51506],[54.49586,24.51508],[54.49582,24.51508],[54.49578,24.51508],[54.49535,24.51507]]},{"cat":"closed","mag":"closed","delay":0,"len":97,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.49788,24.51765],[54.49775,24.51767],[54.49762,24.5177],[54.49748,24.51774],[54.49735,24.51777],[54.49722,24.51781],[54.49696,24.5179]]},{"cat":"closed","mag":"closed","delay":0,"len":97,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.49696,24.5179],[54.49722,24.51781],[54.49735,24.51777],[54.49748,24.51774],[54.49762,24.5177],[54.49775,24.51767],[54.49788,24.51765]]},{"cat":"jam","mag":"major","delay":304,"len":283,"from":"شارِع الأَوائِل","to":"شارع الخور","road":"","events":["Stationary traffic"],"geom":[[54.50418,24.4016],[54.50378,24.40171],[54.50377,24.40171],[54.50367,24.40174],[54.50353,24.40178],[54.50353,24.40179],[54.50348,24.4018],[54.50345,24.40181],[54.50328,24.40186],[54.50286,24.40198],[54.50236,24.40211],[54.50215,24.40216],[54.502,24.40221],[54.50199,24.40221],[54.50184,24.40225],[54.50152,24.40234]]},{"cat":"closed","mag":"closed","delay":0,"len":75,"from":"شارع نسيم البر","to":"Shari' Rahawil / Shari' al-Raheel","road":"","events":["Closed"],"geom":[[54.51841,24.32977],[54.51811,24.32947],[54.5179,24.32928]]},{"cat":"closed","mag":"closed","delay":0,"len":460,"from":"شارع المبروك","to":"شارع المبروك","road":"","events":["Closed"],"geom":[[54.51531,24.41016],[54.51563,24.41001],[54.51905,24.40849],[54.5194,24.40833]]},{"cat":"closed","mag":"closed","delay":0,"len":502,"from":"شارع نسيم البر","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.5168,24.32791],[54.51683,24.32808],[54.51684,24.32813],[54.51687,24.32819],[54.5169,24.32824],[54.51693,24.32827],[54.51718,24.32854],[54.5179,24.32928],[54.51811,24.32947],[54.51841,24.32977],[54.51871,24.33006],[54.5189,24.33025],[54.5194,24.33075],[54.51955,24.33091],[54.51973,24.33109],[54.51989,24.33119],[54.52004,24.33123]]},{"cat":"closed","mag":"closed","delay":0,"len":139,"from":"شارع الاطمئنان","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.53059,24.32899],[54.53059,24.32902],[54.53059,24.32905],[54.53054,24.33006],[54.53053,24.33024]]},{"cat":"closed","mag":"closed","delay":0,"len":207,"from":"شارع نجم سهيل","to":"شارع الهديب","road":"","events":["Closed"],"geom":[[54.5306,24.32848],[54.53068,24.32682],[54.53068,24.32668],[54.53069,24.32662]]},{"cat":"closed","mag":"closed","delay":0,"len":207,"from":"شارع الهديب","to":"شارع نجم سهيل","road":"","events":["Closed"],"geom":[[54.53069,24.32662],[54.53068,24.32668],[54.53068,24.32682],[54.5306,24.32848]]},{"cat":"closed","mag":"closed","delay":0,"len":91,"from":"شارع الغمامة","to":"شارع عصب","road":"","events":["Closed"],"geom":[[54.53098,24.32884],[54.53119,24.32885],[54.53143,24.32886],[54.53144,24.32886],[54.53164,24.32887],[54.53166,24.32887],[54.53188,24.32888]]},{"cat":"closed","mag":"closed","delay":0,"len":23,"from":"شارع عصب","to":"شارع الغمامة","road":"","events":["Closed"],"geom":[[54.53188,24.32888],[54.53166,24.32887]]},{"cat":"closed","mag":"closed","delay":0,"len":410,"from":"شارع أبوظبي-سويحان-الهير","to":"طريق الروضة (E30)","road":"","events":["Closed"],"geom":[[54.53197,24.39119],[54.53141,24.39132],[54.52973,24.39168],[54.52806,24.39211]]},{"cat":"jam","mag":"major","delay":201,"len":333,"from":"شارع الذاري","to":"شارع نسيم البر","road":"","events":["Stationary traffic"],"geom":[[54.53671,24.33208],[54.53673,24.33171],[54.53673,24.3317],[54.53673,24.33165],[54.53673,24.3316],[54.53674,24.33134],[54.53675,24.33126],[54.53676,24.3311],[54.53676,24.33094],[54.53677,24.33085],[54.53677,24.33074],[54.53677,24.33073],[54.53678,24.3306],[54.53679,24.33046],[54.53682,24.32974],[54.53683,24.3296],[54.53683,24.32958],[54.53684,24.32935],[54.53685,24.32925],[54.53685,24.32908]]},{"cat":"closed","mag":"closed","delay":0,"len":879,"from":"ممر 2002","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.53836,24.16833],[54.53769,24.16855],[54.53715,24.16882],[54.5311,24.17262]]},{"cat":"closed","mag":"closed","delay":0,"len":879,"from":"أبوظبي","to":"ممر 2002","road":"","events":["Closed"],"geom":[[54.5311,24.17262],[54.53715,24.16882],[54.53769,24.16855],[54.53836,24.16833]]},{"cat":"works","mag":"unknown","delay":0,"len":507,"from":"شارع الفرسان","to":"أبوظبي","road":"","events":["Roadworks"],"geom":[[54.54826,24.39383],[54.54787,24.39371],[54.5475,24.39361],[54.54713,24.39352],[54.54675,24.39342],[54.54638,24.39334],[54.546,24.39326],[54.54562,24.39319],[54.5438,24.39281],[54.54372,24.3928],[54.54363,24.39279],[54.54355,24.39279],[54.54347,24.39279],[54.54339,24.39281]]},{"cat":"works","mag":"unknown","delay":0,"len":178,"from":"شارع العيني","to":"شارع محمد بن خليفة الكندي","road":"","events":["Roadworks","New roadworks layout"],"geom":[[54.55751,24.34805],[54.55717,24.34803],[54.55576,24.34797]]},{"cat":"closed","mag":"closed","delay":0,"len":1585,"from":"شارِع الوَسِيط","to":"شارع المقاصد","road":"","events":["Closed"],"geom":[[54.56223,24.43203],[54.56211,24.4321],[54.56193,24.43227],[54.56167,24.43243],[54.5616,24.43243],[54.56149,24.43242],[54.56142,24.43241],[54.55107,24.42936],[54.55101,24.42934],[54.55095,24.42933],[54.5509,24.4293],[54.5508,24.42924],[54.55076,24.42921],[54.55072,24.42917],[54.55056,24.42901],[54.55054,24.42898],[54.55048,24.42894],[54.55045,24.42893],[54.55041,24.42892],[54.54948,24.42868],[54.54927,24.42862],[54.54917,24.42858],[54.54907,24.42853],[54.54897,24.42849],[54.54882,24.42842],[54.54875,24.42839],[54.54868,24.42838],[54.54861,24.42837],[54.54854,24.42836],[54.5484,24.42832],[54.54834,24.4283],[54.54828,24.42827],[54.54822,24.42823],[54.54802,24.42808],[54.54796,24.42805],[54.54791,24.42802],[54.54785,24.42801],[54.54777,24.42797],[54.54773,24.42795],[54.5477,24.42791]]},{"cat":"closed","mag":"closed","delay":0,"len":343,"from":"شارع قرون الفردة","to":"شارع السقا 5","road":"","events":["Closed"],"geom":[[54.56874,24.29161],[54.56865,24.29157],[54.56803,24.29134],[54.56793,24.2913],[54.56577,24.29046],[54.56562,24.2904]]},{"cat":"works","mag":"unknown","delay":0,"len":169,"from":"أبوظبي","to":"شارع العيني","road":"","events":["Roadworks","New roadworks layout"],"geom":[[54.57133,24.35465],[54.57139,24.3548],[54.57144,24.35491],[54.57152,24.35504],[54.57165,24.35531],[54.57169,24.35539],[54.57175,24.35548],[54.5718,24.35556],[54.5721,24.356]]},{"cat":"closed","mag":"closed","delay":0,"len":573,"from":"شارع ذياب بن عيسى","to":"شارع الخليج العربي (E20)","road":"","events":["Closed"],"geom":[[54.57425,24.39721],[54.57426,24.39719],[54.57433,24.39685],[54.57438,24.39658],[54.5744,24.39642],[54.57439,24.3963],[54.57438,24.39612],[54.57433,24.39597],[54.57425,24.39584],[54.57413,24.39571],[54.574,24.39562],[54.57384,24.39555],[54.57369,24.39551],[54.57357,24.39549],[54.57345,24.39549],[54.57336,24.3955],[54.57327,24.39551],[54.57316,24.39554],[54.573,24.39562],[54.57285,24.39572],[54.57274,24.39584],[54.57266,24.39598],[54.5726,24.39614],[54.57257,24.39629],[54.57259,24.39644],[54.57265,24.39659],[54.57273,24.39673],[54.57284,24.39685],[54.57296,24.39696],[54.57308,24.39703],[54.5732,24.39708],[54.57331,24.39712],[54.5734,24.39715],[54.57348,24.39718],[54.57358,24.39721],[54.57367,24.39724],[54.57384,24.39731]]},{"cat":"closed","mag":"closed","delay":0,"len":529,"from":"شارع الخليج العربي (E20)","to":"شارع الخليج العربي (E20)","road":"","events":["Closed"],"geom":[[54.57453,24.39744],[54.57633,24.39782],[54.57726,24.398],[54.57829,24.3982],[54.57898,24.39834],[54.57963,24.39846]]},{"cat":"closed","mag":"closed","delay":0,"len":94,"from":"أبوظبي","to":"شارع الصواب","road":"","events":["Closed"],"geom":[[54.59152,24.2765],[54.59102,24.27702],[54.5909,24.27713]]},{"cat":"closed","mag":"closed","delay":0,"len":611,"from":"أبوظبي","to":"شارع المقسم","road":"","events":["Closed"],"geom":[[54.58804,24.29428],[54.58824,24.2941],[54.5886,24.29377],[54.58908,24.29327],[54.59,24.29237],[54.59012,24.29229],[54.59029,24.29218],[54.59037,24.29214],[54.59049,24.29209],[54.59135,24.29177],[54.59155,24.29164],[54.5917,24.29152],[54.59195,24.29127],[54.59243,24.29065]]},{"cat":"closed","mag":"closed","delay":0,"len":473,"from":"شارع المخاييل","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.6005,24.29812],[54.60054,24.2981],[54.60121,24.29779],[54.60152,24.29764],[54.60166,24.2976],[54.60177,24.29756],[54.60187,24.29753],[54.60197,24.29749],[54.60206,24.29744],[54.60277,24.29705],[54.603,24.29693],[54.60324,24.29681],[54.60347,24.29671],[54.6037,24.29661],[54.60409,24.29639],[54.6046,24.29609]]},{"cat":"closed","mag":"closed","delay":0,"len":82,"from":"شارع الاثري / شارع المسرى","to":"شارع الدرر / شارع السباق","road":"","events":["Closed"],"geom":[[54.60648,24.48965],[54.60647,24.48962],[54.60647,24.48959],[54.60647,24.48957],[54.60646,24.48955],[54.60642,24.48943],[54.6063,24.48909],[54.60626,24.48895]]},{"cat":"closed","mag":"closed","delay":0,"len":133,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.61229,24.40725],[54.61223,24.40725],[54.61217,24.40726],[54.61211,24.40725],[54.61204,24.40725],[54.61192,24.40724],[54.61179,24.40722],[54.61167,24.4072],[54.61154,24.40717],[54.61141,24.40713],[54.61129,24.40709],[54.61117,24.40704],[54.61102,24.40699]]},{"cat":"closed","mag":"closed","delay":0,"len":133,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.61229,24.40725],[54.6124,24.40726],[54.61251,24.40728],[54.61261,24.40731],[54.61271,24.40734],[54.61271,24.40735],[54.61276,24.40737],[54.61278,24.40737],[54.61281,24.40739],[54.61287,24.40742],[54.61293,24.40746],[54.61299,24.40751],[54.61304,24.40756],[54.61309,24.40762],[54.61313,24.40767],[54.61316,24.40774],[54.61319,24.4078],[54.6132,24.40784],[54.61322,24.40787],[54.61325,24.40789],[54.61328,24.40792]]},{"cat":"closed","mag":"closed","delay":0,"len":133,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.61328,24.40792],[54.61325,24.40789],[54.61322,24.40787],[54.6132,24.40784],[54.61319,24.4078],[54.61316,24.40774],[54.61313,24.40767],[54.61309,24.40762],[54.61304,24.40756],[54.61299,24.40751],[54.61293,24.40746],[54.61287,24.40742],[54.61281,24.40739],[54.61278,24.40737],[54.61276,24.40737],[54.61271,24.40735],[54.61271,24.40734],[54.61261,24.40731],[54.61251,24.40728],[54.6124,24.40726],[54.61229,24.40725]]},{"cat":"works","mag":"unknown","delay":0,"len":49,"from":"شارع الابريق / شارع الاثلة","to":"شارع العشبة","road":"","events":["Roadworks","New roadworks layout"],"geom":[[54.61391,24.50393],[54.61397,24.50415],[54.61399,24.50426],[54.61401,24.50432],[54.61402,24.50437]]},{"cat":"closed","mag":"closed","delay":0,"len":158,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.61281,24.43396],[54.61288,24.43396],[54.61294,24.43396],[54.61301,24.43395],[54.61363,24.43353],[54.61411,24.43322]]},{"cat":"closed","mag":"closed","delay":0,"len":159,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.61411,24.43322],[54.61363,24.43353],[54.61301,24.43395],[54.61298,24.43399],[54.61297,24.43404],[54.61296,24.43408],[54.61296,24.43413]]},{"cat":"closed","mag":"closed","delay":0,"len":115,"from":"شارع الإبداع","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.61771,24.42977],[54.61754,24.42987],[54.61746,24.42989],[54.61738,24.4299],[54.6173,24.4299],[54.61722,24.42987],[54.61715,24.42984],[54.61708,24.42978],[54.61692,24.42959],[54.61689,24.42956],[54.61687,24.42953],[54.61686,24.42951],[54.61681,24.42948],[54.61681,24.42947]]},{"cat":"works","mag":"unknown","delay":0,"len":495,"from":"شارع الطيران","to":"شارع الخليج العربي","road":"E20","events":["Roadworks","New roadworks layout"],"geom":[[54.62116,24.40982],[54.62104,24.40962],[54.62063,24.40907],[54.62045,24.40881],[54.62025,24.40853],[54.62003,24.40825],[54.61987,24.40807],[54.6198,24.408],[54.61957,24.40777],[54.61942,24.40764],[54.61933,24.40755],[54.61909,24.40737],[54.61907,24.40735],[54.61881,24.40717],[54.61859,24.40702],[54.61827,24.40685],[54.61796,24.40669],[54.61785,24.40664]]},{"cat":"closed","mag":"closed","delay":0,"len":149,"from":"شارع الابريق","to":"شارع الابريق","road":"","events":["Closed"],"geom":[[54.62467,24.50112],[54.62466,24.50117],[54.62466,24.50122],[54.62466,24.50126],[54.62467,24.5013],[54.62472,24.50155],[54.62474,24.50164],[54.62476,24.50173],[54.62478,24.50182],[54.62491,24.50232],[54.62492,24.50235],[54.62492,24.50238],[54.62493,24.50241],[54.62493,24.50244]]},{"cat":"closed","mag":"closed","delay":0,"len":581,"from":"شارع المخاييل","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.6256,24.28096],[54.62555,24.28075],[54.62559,24.28058],[54.62572,24.28044],[54.6262,24.28005],[54.62629,24.27998],[54.62667,24.27956],[54.62677,24.27935],[54.62683,24.27904],[54.6268,24.27878],[54.62667,24.27848],[54.62617,24.27771],[54.62612,24.27751],[54.62614,24.27734],[54.62627,24.27718],[54.62647,24.27705],[54.62706,24.27681]]},{"cat":"closed","mag":"closed","delay":0,"len":581,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.62706,24.27681],[54.62647,24.27705],[54.62627,24.27718],[54.62614,24.27734],[54.62612,24.27751],[54.62617,24.27771],[54.62667,24.27848],[54.6268,24.27878],[54.62683,24.27904],[54.62677,24.27935],[54.62667,24.27956],[54.62629,24.27998],[54.6262,24.28005],[54.62572,24.28044],[54.62559,24.28058],[54.62555,24.28075],[54.6256,24.28096]]},{"cat":"closed","mag":"closed","delay":0,"len":48,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.63177,24.28257],[54.63176,24.28248],[54.63178,24.2824],[54.63183,24.28233],[54.63197,24.28221]]},{"cat":"closed","mag":"closed","delay":0,"len":104,"from":"أبوظبي","to":"شارع صريمة","road":"","events":["Closed"],"geom":[[54.63206,24.28214],[54.63253,24.28264],[54.63256,24.28267],[54.6326,24.28271],[54.63265,24.28274],[54.63271,24.28276],[54.63278,24.28278]]},{"cat":"works","mag":"unknown","delay":0,"len":2642,"from":"شارع الشيخ محمد بن راشد ال مكتوم","to":"أبوظبي","road":"","events":["Roadworks","New roadworks layout"],"geom":[[54.63343,24.26574],[54.6286,24.26922],[54.62524,24.27164],[54.62144,24.27441],[54.61778,24.27705],[54.61623,24.27818],[54.61435,24.27954],[54.61389,24.27986],[54.61336,24.28017],[54.61299,24.28042],[54.61296,24.28044]]},{"cat":"works","mag":"unknown","delay":0,"len":2554,"from":"أبوظبي","to":"شارع الشيخ محمد بن راشد ال مكتوم","road":"","events":["Roadworks","New roadworks layout"],"geom":[[54.61411,24.27971],[54.61435,24.27954],[54.61623,24.27818],[54.61778,24.27705],[54.62144,24.27441],[54.62524,24.27164],[54.6286,24.26922],[54.63343,24.26574],[54.63356,24.26553],[54.63366,24.2653]]},{"cat":"closed","mag":"closed","delay":0,"len":846,"from":"ممر 325","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.64388,24.5082],[54.64208,24.50854],[54.64175,24.5086],[54.64146,24.50866],[54.6414,24.50867],[54.64107,24.50876],[54.64074,24.50886],[54.6406,24.50891],[54.64047,24.50896],[54.64021,24.50907],[54.63996,24.50921],[54.63972,24.50936],[54.63952,24.50951],[54.63934,24.50966],[54.63916,24.50982],[54.63899,24.51],[54.63884,24.51018],[54.63869,24.51037],[54.63856,24.51056],[54.63839,24.51083],[54.63825,24.51108],[54.63767,24.51207],[54.63765,24.5121],[54.63752,24.51233]]},{"cat":"closed","mag":"closed","delay":0,"len":846,"from":"أبوظبي","to":"ممر 325","road":"","events":["Closed"],"geom":[[54.63752,24.51233],[54.63765,24.5121],[54.63767,24.51207],[54.63825,24.51108],[54.63839,24.51083],[54.63856,24.51056],[54.63869,24.51037],[54.63884,24.51018],[54.63899,24.51],[54.63916,24.50982],[54.63934,24.50966],[54.63952,24.50951],[54.63972,24.50936],[54.63996,24.50921],[54.64021,24.50907],[54.64047,24.50896],[54.6406,24.50891],[54.64074,24.50886],[54.64107,24.50876],[54.6414,24.50867],[54.64146,24.50866],[54.64175,24.5086],[54.64208,24.50854],[54.64388,24.5082]]},{"cat":"works","mag":"unknown","delay":0,"len":116,"from":"شارِع 1","to":"شارع طوي النبعة","road":"E311","events":["Roadworks","New roadworks layout"],"geom":[[54.64634,24.2795],[54.6459,24.27902],[54.64583,24.27896],[54.64582,24.27895],[54.64576,24.27891],[54.64568,24.27887],[54.6456,24.27883],[54.64552,24.2788]]},{"cat":"closed","mag":"closed","delay":0,"len":160,"from":"شارع سالم بو ملحا المرر","to":"شارع الجوهر","road":"","events":["Closed"],"geom":[[54.64852,24.38355],[54.6486,24.38349],[54.64868,24.38343],[54.64949,24.38286],[54.64959,24.38276],[54.6496,24.38275],[54.64972,24.38262]]},{"cat":"works","mag":"unknown","delay":0,"len":550,"from":"شارع الباهية","to":"شارع الرحبة","road":"","events":["Roadworks"],"geom":[[54.65042,24.5767],[54.65038,24.57679],[54.65037,24.57686],[54.65036,24.57689],[54.65035,24.57699],[54.65035,24.57709],[54.65036,24.57715],[54.65036,24.57718],[54.65038,24.57738],[54.65075,24.58162]]},{"cat":"closed","mag":"closed","delay":0,"len":246,"from":"شارع سالم بو ملحا المرر","to":"شارع الجوهر","road":"","events":["Closed"],"geom":[[54.64987,24.39097],[54.64997,24.3909],[54.65031,24.39066],[54.65178,24.3896]]},{"cat":"works","mag":"unknown","delay":0,"len":502,"from":"طريق سويحان (E20)","to":"شارع نسيم البر","road":"","events":["Roadworks","New roadworks layout"],"geom":[[54.65194,24.40288],[54.65192,24.40281],[54.6519,24.40275],[54.65188,24.40271],[54.65186,24.40265],[54.65185,24.40264],[54.65183,24.40261],[54.65161,24.40234],[54.64899,24.39926]]},{"cat":"closed","mag":"closed","delay":0,"len":119,"from":"أبوظبي","to":"شارع اللطايف","road":"","events":["Closed"],"geom":[[54.65163,24.28116],[54.65239,24.28197]]},{"cat":"works","mag":"unknown","delay":0,"len":3264,"from":"شارع الخليج العربي","to":"شارع 11أ","road":"E20","events":["Roadworks","New roadworks layout"],"geom":[[54.63271,24.40907],[54.63331,24.40919],[54.63335,24.4092],[54.63339,24.40921],[54.63505,24.40954],[54.63728,24.40997],[54.63765,24.41004],[54.63771,24.41005],[54.63809,24.4101],[54.63872,24.41019],[54.63935,24.41025],[54.63981,24.4103],[54.64003,24.41031],[54.64027,24.41031],[54.64079,24.41034],[54.64131,24.41035],[54.64167,24.41036],[54.64187,24.41036],[54.64704,24.41013],[54.64829,24.41008],[54.64849,24.41007],[54.64941,24.41004],[54.65023,24.41],[54.65079,24.40998],[54.65301,24.40989],[54.65342,24.40987],[54.65461,24.40982],[54.6551,24.40979],[54.65713,24.40971],[54.66119,24.40955],[54.66277,24.40948],[54.66479,24.4094]]},{"cat":"works","mag":"unknown","delay":0,"len":368,"from":"شارع بالدخان","to":"شارع الشخوص","road":"","events":["Roadworks"],"geom":[[54.69237,24.36634],[54.69213,24.36652],[54.68948,24.36835]]},{"cat":"closed","mag":"closed","delay":0,"len":282,"from":"شارع الشيخ محمد بن راشد ال مكتوم (E311)","to":"شارِع 57","road":"","events":["Closed"],"geom":[[54.69616,24.33384],[54.69613,24.33383],[54.69598,24.33376],[54.69592,24.33374],[54.69587,24.33373],[54.69581,24.33373],[54.69576,24.33374],[54.6957,24.33375],[54.69562,24.3338],[54.69561,24.3338],[54.69557,24.33383],[54.69553,24.33385],[54.69545,24.33391],[54.69527,24.33404],[54.69421,24.33478],[54.69415,24.33483],[54.69413,24.33484],[54.69412,24.33485],[54.69406,24.33491],[54.69401,24.33497],[54.69399,24.33499],[54.69394,24.33507]]},{"cat":"closed","mag":"closed","delay":0,"len":109,"from":"طريق الروضة","to":"شارع الوثبة","road":"","events":["Closed"],"geom":[[54.70206,24.2429],[54.70213,24.24302],[54.70224,24.24317],[54.70234,24.24327],[54.70272,24.24367]]},{"cat":"works","mag":"unknown","delay":0,"len":329,"from":"شارع الطروش","to":"ممر 2303","road":"E311","events":["Roadworks","New roadworks layout"],"geom":[[54.70292,24.3415],[54.70486,24.34387]]},{"cat":"closed","mag":"closed","delay":0,"len":245,"from":"ممر 2123","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.72657,24.21227],[54.72678,24.21156],[54.7268,24.21149],[54.72712,24.2104],[54.72715,24.21032],[54.7272,24.21014]]},{"cat":"closed","mag":"closed","delay":0,"len":112,"from":"شارع رقى","to":"شارع المعهد","road":"","events":["Closed"],"geom":[[54.72889,24.32271],[54.72998,24.32259]]},{"cat":"works","mag":"unknown","delay":0,"len":401,"from":"ممر 2303","to":"شارع الانجال","road":"E311","events":["Roadworks"],"geom":[[54.72815,24.37224],[54.72994,24.37441],[54.73052,24.37512]]},{"cat":"works","mag":"unknown","delay":0,"len":1456,"from":"ممر 2303","to":"أبوظبي","road":"E311","events":["Roadworks","New roadworks layout"],"geom":[[54.73525,24.38091],[54.73723,24.38331],[54.73745,24.38357],[54.7383,24.38463],[54.7383,24.38463],[54.73831,24.38464],[54.73897,24.38546],[54.73952,24.38613],[54.74071,24.38761],[54.74111,24.3881],[54.7421,24.38932],[54.74251,24.38981],[54.74298,24.39038],[54.74299,24.39039],[54.74347,24.39099],[54.74383,24.39142]]},{"cat":"closed","mag":"closed","delay":0,"len":89,"from":"أبوظبي","to":"طريق الروضة (E30)","road":"","events":["Closed"],"geom":[[54.75219,24.22402],[54.75222,24.22405],[54.75234,24.22416],[54.75239,24.2242],[54.75244,24.22424],[54.75248,24.22426],[54.7525,24.22427],[54.75253,24.22429],[54.75255,24.2243],[54.75262,24.22433],[54.75268,24.22434],[54.75275,24.22435],[54.75281,24.22435],[54.75288,24.22434],[54.75295,24.22433]]},{"cat":"closed","mag":"closed","delay":0,"len":1313,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.7436,24.42026],[54.74377,24.42036],[54.74395,24.42039],[54.74619,24.42066],[54.74999,24.42115],[54.75,24.42115],[54.75603,24.42192],[54.7561,24.42193],[54.75618,24.42193],[54.75626,24.42193],[54.75634,24.42192],[54.75642,24.42191]]},{"cat":"closed","mag":"closed","delay":0,"len":124,"from":"E30","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.79647,24.215],[54.79654,24.21495],[54.79657,24.21493],[54.79661,24.21491],[54.79669,24.21486],[54.79677,24.21483],[54.79736,24.21469],[54.7974,24.21467],[54.79744,24.21465],[54.79747,24.21462],[54.79747,24.21462],[54.79749,24.21459],[54.79751,24.21456],[54.79752,24.21452]]},{"cat":"closed","mag":"closed","delay":0,"len":82,"from":"طريق الحفار (E75)","to":"E30","road":"","events":["Closed"],"geom":[[54.8216,24.20977],[54.82147,24.20985],[54.82136,24.20988],[54.82134,24.20988],[54.82133,24.20989],[54.82117,24.20988],[54.82103,24.20984],[54.82087,24.20972]]},{"cat":"closed","mag":"closed","delay":0,"len":643,"from":"أبوظبي","to":"طريق الروضة","road":"E75","events":["Closed"],"geom":[[54.82195,24.2155],[54.82193,24.21545],[54.82192,24.2154],[54.82191,24.21532],[54.8219,24.21523],[54.82189,24.21513],[54.82177,24.21409],[54.82176,24.21404],[54.82176,24.21403],[54.82173,24.21386],[54.8217,24.21366],[54.82168,24.21348],[54.82166,24.2133],[54.82155,24.21256],[54.82129,24.21032],[54.82127,24.21015],[54.82121,24.21003],[54.82114,24.20994],[54.82103,24.20984]]},{"cat":"closed","mag":"closed","delay":0,"len":657,"from":"طريق الحفار (E75)","to":"ممر 3404","road":"","events":["Closed"],"geom":[[54.8309,24.24242],[54.83113,24.24241],[54.83136,24.24241],[54.83183,24.2424],[54.833,24.24246],[54.83423,24.2425],[54.83452,24.2425],[54.83481,24.24248],[54.83538,24.24244],[54.83599,24.24238],[54.83662,24.24231],[54.83726,24.24218],[54.83735,24.24216]]},{"cat":"closed","mag":"closed","delay":0,"len":657,"from":"ممر 3404","to":"طريق الحفار (E75)","road":"","events":["Closed"],"geom":[[54.83735,24.24216],[54.83726,24.24218],[54.83662,24.24231],[54.83599,24.24238],[54.83538,24.24244],[54.83481,24.24248],[54.83452,24.2425],[54.83423,24.2425],[54.833,24.24246],[54.83183,24.2424],[54.83136,24.24241],[54.83113,24.24241],[54.8309,24.24242]]},{"cat":"works","mag":"unknown","delay":0,"len":630,"from":"ممر 2402","to":"طريق الحفار","road":"E75","events":["Roadworks"],"geom":[[54.85512,24.29192],[54.85495,24.29181],[54.85453,24.29153],[54.85407,24.29122],[54.85318,24.29061],[54.85234,24.29002],[54.85133,24.28934],[54.85127,24.2893],[54.85016,24.28854],[54.85014,24.28853]]},{"cat":"works","mag":"unknown","delay":0,"len":429,"from":"طريق الحفار","to":"ممر 2402","road":"E75","events":["Roadworks","New roadworks layout"],"geom":[[54.85173,24.28961],[54.85234,24.29002],[54.85318,24.29061],[54.85407,24.29122],[54.85453,24.29153],[54.85495,24.29181],[54.85512,24.29192]]},{"cat":"closed","mag":"closed","delay":0,"len":119,"from":"ممر 2402","to":"ممر 2402","road":"E75","events":["Closed"],"geom":[[54.85512,24.29192],[54.85561,24.29226],[54.85568,24.29232],[54.85606,24.29257]]},{"cat":"closed","mag":"closed","delay":0,"len":1408,"from":"ممر 2402","to":"أبوظبي","road":"E75","events":["Closed"],"geom":[[54.87366,24.30427],[54.87373,24.30437],[54.87377,24.30443],[54.87382,24.30448],[54.87387,24.30453],[54.87392,24.30458],[54.87398,24.30463],[54.87453,24.30501],[54.87558,24.30573],[54.87609,24.30609],[54.87891,24.30805],[54.8801,24.30885],[54.88243,24.31048],[54.88394,24.31155],[54.88424,24.31177],[54.88431,24.31182],[54.88439,24.31186],[54.88447,24.31189],[54.88456,24.31192],[54.88467,24.31196]]},{"cat":"closed","mag":"closed","delay":0,"len":1172,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.8893,24.67161],[54.88319,24.67281],[54.88262,24.67292],[54.87976,24.67348],[54.87797,24.67383]]},{"cat":"closed","mag":"closed","delay":0,"len":1172,"from":"أبوظبي","to":"أبوظبي","road":"","events":["Closed"],"geom":[[54.87797,24.67383],[54.87976,24.67348],[54.88262,24.67292],[54.88319,24.67281],[54.8893,24.67161]]}]}</script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+const store = { get(k) { try { return localStorage.getItem(k) } catch { return null } }, set(k, v) { try { localStorage.setItem(k, v) } catch {} } };
+
+/* =====================================================================
+   PASS ENGINE: signed priority passes, edge verification, audit chain
+   (WebCrypto Ed25519; same rules as the Node version in src/rapidpass.js)
+   ===================================================================== */
+const enc = new TextEncoder(), b64 = u => btoa(String.fromCharCode(...new Uint8Array(u))), unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const canon = v => Array.isArray(v) ? '[' + v.map(canon).join(',') + ']' : v && typeof v === 'object' ? '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}' : JSON.stringify(v);
+const ED = { name: 'Ed25519' };
+const newKey = async () => { const k = await crypto.subtle.generateKey(ED, true, ['sign', 'verify']); return { ...k, pub: b64(await crypto.subtle.exportKey('spki', k.publicKey)) } };
+const sign = async (o, priv) => b64(await crypto.subtle.sign(ED, priv, enc.encode(canon(o))));
+const check = async (o, s, pub) => { try { return await crypto.subtle.verify(ED, pub, unb64(s), enc.encode(canon(o))) } catch { return false } };
+const pubOf = s => crypto.subtle.importKey('spki', unb64(s), ED, true, ['verify']);
+const sha = async s => [...new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(s)))].map(x => x.toString(16).padStart(2, '0')).join('');
+const PRIORITY = new Set(['enroute', 'patient']), STATUSES = ['enroute', 'patient', 'returning', 'available'];
+class PassError extends Error {}
+const P = { authority: null, incidents: new Map(), revoked: new Set(), seq: 0, audit: [], sim: new Map(), attacker: null,
+  async ready() { if (!this.authority) this.authority = await newKey(); },
+  async log(type, data) { const prev = this.audit.length ? this.audit[this.audit.length - 1].hash : 'GENESIS'; const body = { seq: this.audit.length + 1, ts: new Date().toISOString(), type, data }; this.audit.push({ ...body, prev, hash: await sha(prev + canon(body)) }); },
+  async chain() { let prev = 'GENESIS'; for (const e of this.audit) { const { prev: p, hash, ...body } = e; if (p !== prev || await sha(prev + canon(body)) !== hash) return { ok: false, brokenAt: e.seq }; prev = hash } return { ok: true, length: this.audit.length } },
+  view(i) { return { id: i.id, type: i.type, location: i.location, active: i.active, vehicles: [...i.vehicles.values()].map(v => ({ plate: v.plate, agency: v.agency, status: v.status, kid: v.credential.kid, revoked: this.revoked.has(v.credential.kid) })) } },
+  active(id) { const i = this.incidents.get(id); if (!i) throw new PassError('incident not found'); if (!i.active) throw new PassError('incident is closed'); return i },
+  async createIncident({ type = 'medical', location = '' } = {}) { await this.ready(); const id = 'INC-' + (2401 + this.seq++); const i = { id, type, location, active: true, vehicles: new Map() }; this.incidents.set(id, i); await this.log('INCIDENT_OPENED', { id, type, location }); return this.view(i) },
+  async issuePass(incId, { plate, agency = 'unknown', cls = 'ambulance' }) {
+    await this.ready(); const i = this.active(incId); if (!plate) throw new PassError('plate is required'); if (i.vehicles.has(plate)) throw new PassError('vehicle already has a pass on this incident');
+    const dev = await newKey(), t = Date.now(), c = { v: 1, kid: i.id + ':' + plate, plate, agency, cls, incident: i.id, devicePub: dev.pub, nbf: t, exp: t + 7200000 };
+    const credential = { ...c, sig: await sign(c, this.authority.privateKey) };
+    i.vehicles.set(plate, { plate, agency, status: 'enroute', credential, lastCtr: 0 });
+    this.sim.set(plate, { credential, key: dev.privateKey, ctr: 0, last: null }); await this.log('PASS_ISSUED', { incident: i.id, plate, agency, kid: c.kid }); return { credential } },
+  async setStatus(incId, plate, status) { const i = this.active(incId), v = i.vehicles.get(plate); if (!v) throw new PassError('vehicle not on this incident'); if (!STATUSES.includes(status)) throw new PassError('bad status'); v.status = status; await this.log('STATUS_CHANGED', { incident: i.id, plate, status }); return this.view(i) },
+  async close(incId) { const i = this.active(incId); i.active = false; i.vehicles.forEach(v => this.revoked.add(v.credential.kid)); await this.log('INCIDENT_CLOSED', { id: i.id, revoked: i.vehicles.size }); return this.view(i) },
+  async decide(m) {
+    if (!m || !m.cred || typeof m.ctr !== 'number' || typeof m.ts !== 'number') return { ok: false, reason: 'MALFORMED', alert: false };
+    const { sig: cs, ...cred } = m.cred;
+    if (!await check(cred, cs, this.authority.publicKey)) return { ok: false, reason: 'BAD_CREDENTIAL_SIGNATURE', alert: true };
+    const t = Date.now();
+    if (t < cred.nbf || t > cred.exp) return { ok: false, reason: 'CREDENTIAL_EXPIRED', alert: false };
+    if (this.revoked.has(cred.kid)) return { ok: false, reason: 'CREDENTIAL_REVOKED', alert: false };
+    const inc = this.incidents.get(cred.incident), v = inc && inc.vehicles.get(cred.plate);
+    if (!inc || !inc.active || !v) return { ok: false, reason: 'NOT_DISPATCHED', alert: false };
+    if (!PRIORITY.has(v.status)) return { ok: false, reason: 'STATUS_NOT_PRIORITY', alert: false };
+    const body = { plate: m.plate, incident: m.incident, ctr: m.ctr, ts: m.ts };
+    if (m.plate !== cred.plate || m.incident !== cred.incident || !await check(body, m.sig, await pubOf(cred.devicePub))) return { ok: false, reason: 'BAD_MESSAGE_SIGNATURE', alert: true };
+    if (Math.abs(t - m.ts) > 5000) return { ok: false, reason: 'STALE_MESSAGE', alert: false };
+    if (m.ctr <= v.lastCtr) return { ok: false, reason: 'REPLAY', alert: true };
+    v.lastCtr = m.ctr; return { ok: true, reason: 'OK', alert: false } },
+  async verify(m, site = 'unit') { const r = await this.decide(m); await this.log(r.ok ? 'VERIFY_ACCEPTED' : 'VERIFY_REJECTED', { site, plate: m && m.plate || null, reason: r.reason, alert: r.alert }); return r },
+  async message(cred, priv, ctr, ts) { const body = { plate: cred.plate, incident: cred.incident, ctr, ts }; return { cred, ...body, sig: await sign(body, priv) } },
+  /** Act as the vehicle: mode is valid, replay, forged or wrongkey. */
+  async simulate(plate, mode, site) {
+    const s = this.sim.get(plate); if (!s) throw new PassError('unknown plate; issue a pass first'); let msg;
+    if (mode === 'valid') { msg = await this.message(s.credential, s.key, ++s.ctr, Date.now()); s.last = msg }
+    else if (mode === 'replay') { if (!s.last) throw new PassError('send a valid message first, then replay it'); msg = s.last }
+    else if (mode === 'forged') msg = await this.message({ ...s.credential, cls: 'fire' }, s.key, ++s.ctr, Date.now());
+    else if (mode === 'wrongkey') { this.attacker = this.attacker || (await newKey()).privateKey; msg = await this.message(s.credential, this.attacker, ++s.ctr, Date.now()) }
+    else throw new PassError('unknown mode');
+    return { mode, ...await this.verify(msg, site) } } };
+
+/* =====================================================================
+   PASSES VIEW
+   ===================================================================== */
+async function renderPasses() {
+  const incs = [...P.incidents.values()].map(i => P.view(i)), sel = $('rpp-inc'), cur = sel.value;
+  sel.innerHTML = incs.filter(i => i.active).map(i => `<option ${i.id === cur ? 'selected' : ''}>${esc(i.id)}</option>`).join('');
+  $('rpp-incs').innerHTML = incs.length ? incs.slice().reverse().map(i => `<div class="rpp-inc"><b>${esc(i.id)}</b> ${esc(i.type)} ${esc(i.location)} <span class="pill ${i.active ? 'p-ok' : 'p-hold'}">${i.active ? 'active' : 'closed'}</span>
+    ${i.active ? `<button class="btn" data-close="${esc(i.id)}" type="button" style="margin-left:6px;padding:2px 8px">Close</button>` : ''}
+    ${i.vehicles.map(v => `<div>${esc(v.plate)} · ${esc(v.agency)} · <select class="sel" data-inc="${esc(i.id)}" data-plate="${esc(v.plate)}" ${i.active ? '' : 'disabled'}>${STATUSES.map(s => `<option ${s === v.status ? 'selected' : ''}>${s}</option>`).join('')}</select> ${v.revoked ? '<span class="pill p-bad">revoked</span>' : ''}</div>`).join('')}</div>`).join('') : '<span class="rpm-note">No incidents yet.</span>';
+  await P.ready(); const c = await P.chain(), b = $('rpp-chain');
+  b.innerHTML = `<i style="background:${c.ok ? 'var(--ok)' : 'var(--red)'}"></i>${c.ok ? 'Audit chain ok (' + c.length + ')' : 'Audit chain BROKEN at ' + c.brokenAt}`;
+  $('rpp-audit').textContent = P.audit.slice(-200).reverse().map(e => `#${e.seq} ${e.type} ${JSON.stringify(e.data)}`).join('\n') || 'No entries yet.';
+}
+const ppGuard = fn => async (...a) => { try { await fn(...a) } catch (e) { $('rpp-verdict').innerHTML = '<span class="rpm-bad">' + esc(e.message) + '</span>' } };
+$('rpp-new').onclick = ppGuard(async () => { await P.createIncident({ type: $('rpp-type').value, location: $('rpp-loc').value }); await renderPasses() });
+$('rpp-issue').onclick = ppGuard(async () => { await P.issuePass($('rpp-inc').value, { plate: $('rpp-plate').value, agency: $('rpp-agency').value }); $('rpp-splate').value = $('rpp-plate').value; await renderPasses() });
+$('rpp-modes').addEventListener('click', ppGuard(async e => { const b = e.target.closest('[data-mode]'); if (!b) return;
+  const r = await P.simulate($('rpp-splate').value, b.dataset.mode, 'roadside unit');
+  $('rpp-verdict').innerHTML = `<span class="${r.ok ? 'rpm-ok' : 'rpm-bad'}">${r.ok ? 'ACCEPTED' : 'REJECTED'} · ${esc(r.reason)}</span>${r.alert ? ' <span class="rpm-warn">· police alerted</span>' : ''}`; await renderPasses() }));
+$('rpp-incs').addEventListener('click', ppGuard(async e => { const c = e.target.closest('[data-close]'); if (c) { await P.close(c.dataset.close); await renderPasses() } }));
+$('rpp-incs').addEventListener('change', ppGuard(async e => { const s = e.target.closest('select[data-plate]'); if (s) { await P.setStatus(s.dataset.inc, s.dataset.plate, s.value); await renderPasses() } }));
+window.RPPasses = { activate() { if (!(window.crypto && crypto.subtle)) { $('rpp-verdict').textContent = 'This browser has no WebCrypto. Open the page over https in a current browser.'; return } renderPasses().catch(e => { $('rpp-verdict').textContent = e.message }) } };
+
+/* =====================================================================
+   MAP VIEW
+   ===================================================================== */
+const rad = d => d * Math.PI / 180;
+function hav(a, b) { const dLat = rad(b[1] - a[1]), dLon = rad(b[0] - a[0]); const x = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[1])) * Math.cos(rad(b[1])) * Math.sin(dLon / 2) ** 2; return 12742000 * Math.asin(Math.sqrt(x)) }
+function circle(lon, lat, r, n = 20) { const ring = [], dLat = r / 111320, dLon = r / (111320 * Math.cos(rad(lat))); for (let i = 0; i <= n; i++) { const t = i / n * 2 * Math.PI; ring.push([lon + dLon * Math.cos(t), lat + dLat * Math.sin(t)]) } return [ring] }
+function distToLine(p, line) {
+  const k = Math.cos(rad(p[1])), mx = 111320 * k, my = 110540; let best = Infinity;
+  for (let i = 0; i < line.length - 1; i++) { const ax = (line[i][0] - p[0]) * mx, ay = (line[i][1] - p[1]) * my, bx = (line[i + 1][0] - p[0]) * mx, by = (line[i + 1][1] - p[1]) * my, dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+    let t = l2 ? -(ax * dx + ay * dy) / l2 : 0; t = Math.max(0, Math.min(1, t)); best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy)) }
+  return best;
+}
+const fmtMin = s => s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.round(s % 3600 / 60)} min` : `${Math.floor(s / 60)} min ${Math.round(s % 60)} s`;
+const fmtKm = m => (m / 1000).toFixed(1) + ' km';
+
+const CENTER = [54.42, 24.46], BBOX = [54.15, 24.15, 54.95, 24.75];
+const STYLES = { light: 'https://tiles.openfreemap.org/styles/liberty', grey: 'https://tiles.openfreemap.org/styles/positron' };
+const TT = 'https://api.tomtom.com';
+const MAG_COLOR = { major: '#ff3b30', moderate: '#ff8a3d', minor: '#f2b632', unknown: '#c9a227' };
+const DEFAULT_KEY = 'Pvsf76Td6268Z6caVrXErIOkh6fq526I'; // public demo key (owner-approved); a key pasted in the page overrides it
+try { const m = location.hash.match(/[#&]key=([^&]+)/); if (m) { store.set('rp.tomtom', decodeURIComponent(m[1])); history.replaceState(null, '', location.pathname + location.search + '#map'); setTimeout(() => window.RPConsole && window.RPConsole.show('map'), 0); } } catch {}
+const storedKey = store.get('rp.tomtom');
+const SNAP = JSON.parse($('rp-snapshot').textContent);
+const M = { key: storedKey === null ? DEFAULT_KEY : storedKey, inc: [], live: false, updated: null, bumps: null, bumpsErr: '', flow: {}, route: null, style: 'light', pitch: 58,
+  layers: { uc: true, flow: false, inc: true, towers: true, places: true, bumps: true, b3d: true }, ucFilter: 'ALL', run: null };
+let map = null, mapReady = false, ucMarkers = [], vehMarker = null, popup = null, incTimer = 0, flowTimer = 0;
+
+/* ---------- the 37 use cases, placed on the map ---------- */
+const GROUPS = { E: ['Emergency operations', '#f2b632'], C: ['Civilians and vulnerable users', '#38c6b2'], S: ['Security and misuse', '#ff5d52'], N: ['Environment', '#6f8ef0'], H: ['System health', '#b48aff'], O: ['Operations', '#4fd18b'] };
+// [code, title, risk, solution, [lon,lat], where, scenario id in Live]
+const UC = [
+ ['E1', 'Single emergency vehicle on an active call', 'Delay and patient jolt', 'Dispatch geofence plus V2X or siren (two of three); lower before the vehicle enters the braking zone', [54.3935, 24.4945], 'Approach to Cleveland Clinic Abu Dhabi', 'emergency'],
+ ['E2', 'Convoy of two or more vehicles', 'Unit rises between them, in front of the second vehicle', 'Hold flush while any credentialed vehicle is inside the window; raise only after the last one clears', [54.405, 24.5155], 'Sheikh Khalifa Bin Zayed St, Saadiyat to Maryah', 'convoy'],
+ ['E3', 'Vehicle arrives faster than planned', 'Unit still moving when the vehicle arrives', 'Detection distance from live speed; if the window is missed keep raised and warn the crew in the cab', [54.44, 24.426], 'Slip road near Zayed Military Hospital', null],
+ ['E4', 'Emergency vehicle in the opposite lane', 'Wrong segment lowers', 'Per-lane, per-direction actuation from vehicle heading', [54.38, 24.469], 'Dual carriageway near Sheikh Khalifa Medical City', 'opposite'],
+ ['E5', 'Ambulance overtakes queued traffic in the opposite lane', 'Raised segment in its actual path', 'Actuate the segment the vehicle is physically in, from GPS position and heading', [54.456, 24.4195], 'Airport Rd near Mediclinic', null],
+ ['E6', 'Short approach, turning in from a side street', 'No time to lower', 'Route-based geofence from dispatch so lowering starts before the turn', [54.37, 24.464], 'Al Manhal side streets', null],
+ ['E7', 'Vehicle returning to station without lights', 'Needless actuation', 'Dispatch status decides: only en route and patient-on-board trigger', [54.3645, 24.4595], 'Outside Civil Defence Al Zaab', null],
+ ['E8', 'Unplanned police pursuit, no dispatch record', 'No trigger', 'V2X credential plus siren is enough (two of three)', [54.4, 24.47], 'Sheikh Zayed Bin Sultan St', null],
+ ['E9', 'Traffic queued on the unit when an ambulance approaches', 'Cannot lower under vehicles', 'Wait for a clear zone and tell the crew over V2X that the unit is blocked', [54.396, 24.459], 'Near Burjeel Hospital', null],
+ ['C1', 'Car tailgates the emergency vehicle', 'Unit rises under the car (the Edinburgh bollard case)', 'Never move while a vehicle is in the zone; let it cross flush and log it', [54.42, 24.525], 'Saadiyat access road', 'tailgate'],
+ ['C2', 'Vehicle broken down or parked on the unit', 'Unit cannot move', 'Lock in place, alert operations, flag to dispatch for rerouting', [54.51, 24.415], 'E20 corridor, Sas Al Nakhl', null],
+ ['C3', 'Pedestrian crossing on a raised table', 'Moving plate under a foot', 'Camera or LiDAR presence detection across the full table; freeze if anyone is on it', [54.403, 24.4355], 'Al Mushrif children\'s centre crossing', null],
+ ['C4', 'Cyclist or motorcyclist', 'Fall on a part-raised edge', 'Never stop part-way while traffic is near; cap the gap between segments', [54.349, 24.483], 'Corniche cycle track', null],
+ ['C5', 'Bus or heavy truck in normal service', 'Passenger discomfort, axle damage', 'Bus-route profile with lower height or longer ramp', [54.365, 24.489], 'Bus corridor, Al Danah', null],
+ ['C6', 'Vehicle reversing over the unit', 'Unexpected direction', 'Presence sensing covers both directions', [54.43, 24.4235], 'Ambulance bay, Zayed Military Hospital', null],
+ ['C7', 'Driver stops on the unit to give way', 'Blocks lowering', 'Advance warning lights tell drivers not to stop on the unit', [54.378, 24.478], 'Junction near Civil Defence HQ', null],
+ ['S1', 'Aftermarket siren on a private car', 'False trigger', 'Siren alone never triggers', [54.603, 24.4925], 'Yas Island', 'falsealarm'],
+ ['S2', 'Cloned RFID tag or forged V2X message', 'Unauthorised lowering', 'Signed messages with rotating certificates; cross-check the dispatch record; alert police', [54.564, 24.444], 'Al Sammaliyyah', 'security'],
+ ['S3', 'Replay of a recorded valid message', 'Unauthorised lowering', 'Timestamps and one-time counters in every message', [54.505, 24.426], 'Sas Al Nakhl', null],
+ ['S4', 'Attack on the central platform commanding mass actuation', 'City-wide disruption', 'Edge controller refuses any command its own sensors do not support', [54.377, 24.473], 'Operations centre, Al Danah', null],
+ ['S5', 'Criminal vehicle follows an ambulance to escape', 'Exploits the flush unit', 'Camera captures every civilian vehicle crossing flush; evidence goes to the police platform', [54.415, 24.434], 'Al Saadah', 'tailgate'],
+ ['S6', 'Vandalism or tampering with the cabinet', 'Unit disabled', 'Tamper sensor, alarm, failsafe raised', [54.5, 24.406], 'Rabdan', null],
+ ['N1', 'Road surface above 60 °C', 'Seal and fluid failure', 'Heat-rated seals and electronics; prefer electromechanical drive', [54.49, 24.365], 'Mussafah industrial road', null],
+ ['N2', 'Sand and dust ingress', 'Jammed mechanism', 'Sealed housing, wiper seals, a nightly self-test that detects rising motor current', [54.6, 24.39], 'Khalifa City desert edge', null],
+ ['N3', 'Flash flood fills the pit', 'Mechanism under water', 'Water-level sensor; report unavailable to dispatch; stay raised', [54.6, 24.335], 'Low ground near Mafraq', null],
+ ['N4', 'Oil or diesel spill on the plates', 'Skid', 'Anti-skid plate surface; slip alarm from wet-surface sensor', [54.47, 24.35], 'Mussafah truck road', null],
+ ['N5', 'Night, fog, sandstorm', 'Unit not seen', 'Embedded LED markers showing state', [54.53, 24.46], 'Airport-Yas highway', null],
+ ['H1', 'Grid power loss', 'No actuation', 'Battery backup; failsafe raised when the battery is low', [54.5025, 24.3985], 'Near Danat Al Emarat Hospital', 'power'],
+ ['H2', 'Controller fault', 'Unknown state', 'Spring failsafe to raised; maintenance alarm', [54.539, 24.3565], 'Near Burjeel Medical City', 'power'],
+ ['H3', 'Link to platform lost', 'No dispatch trigger', 'Edge still acts on V2X plus siren', [54.572, 24.4135], 'Khalifa City', 'security'],
+ ['H4', 'Actuator jams part-way', 'A step in the road, the most dangerous state', 'Lock, flash warning lights, broadcast an in-cab warning, alert maintenance', [54.434, 24.4185], 'Al Rawdah', 'jam'],
+ ['H5', 'Stuck flush', 'Calming lost', 'Temporary warning signs, alert, priority repair', [54.4635, 24.4145], 'Airport Rd, Al Rawdah', null],
+ ['H6', 'Sensors disagree', 'Wrong decision', 'Freeze and alarm; never act on a single sensor', [54.392, 24.4575], 'Al Nahyan', null],
+ ['O1', 'Planned event or marathon', 'Runners over moving plates', 'Event mode locks units flush or raised from the operations centre', [54.358, 24.495], 'Corniche', null],
+ ['O2', 'Evacuation or major incident', 'Calming slows mass movement', 'One command lowers every unit on evacuation routes', [54.384, 24.449], 'Sheikh Zayed Bridge approach', null],
+ ['O3', 'Road works or resurfacing', 'Damage to the unit', 'Maintenance mode with lockout', [54.4, 24.5], 'Real roadworks from TomTom', null],
+ ['O4', 'Insurance claim or complaint', 'No evidence', 'Event log with video clip for every actuation and every flush crossing', [54.371, 24.4745], 'Operations centre records', null],
+];
+
+/* ---------- data ---------- */
+const ICON_CAT = { 1: 'accident', 6: 'jam', 8: 'closed', 9: 'works', 11: 'flood', 14: 'broken' };
+const MAG_NAME = { 0: 'unknown', 1: 'minor', 2: 'moderate', 3: 'major', 4: 'closed' };
+const normSnapshot = () => SNAP.incidents.map(i => ({ cat: i.cat, mag: i.mag, delay: i.delay || 0, len: i.len || 0, from: i.from, to: i.to, road: i.road, desc: (i.events || []).join(', '), geom: i.geom }));
+function normTomTom(json) {
+  return (json.incidents || []).map(f => { const p = f.properties || {}, g = f.geometry || {};
+    const geom = g.type === 'Point' ? [g.coordinates, g.coordinates] : (g.coordinates || []); const cat = ICON_CAT[p.iconCategory] || 'other';
+    return { cat, mag: cat === 'closed' ? 'closed' : (MAG_NAME[p.magnitudeOfDelay] || 'unknown'), delay: p.delay || 0, len: p.length || 0, from: p.from || '', to: p.to || '', road: (p.roadNumbers || [])[0] || '', desc: (p.events || []).map(e => e.description).filter(Boolean).join(', '), geom };
+  }).filter(i => i.geom.length > 1);
+}
+async function loadLiveIncidents() {
+  const fields = encodeURIComponent('{incidents{type,geometry{type,coordinates},properties{iconCategory,magnitudeOfDelay,events{description},from,to,length,delay,roadNumbers}}}');
+  const r = await fetch(`${TT}/traffic/services/5/incidentDetails?key=${encodeURIComponent(M.key)}&bbox=${BBOX.join(',')}&fields=${fields}&language=en-GB&timeValidityFilter=present`);
+  if (!r.ok) throw new Error(r.status === 403 || r.status === 401 ? 'TomTom rejected the key (HTTP ' + r.status + '). Check it and its allowed referrers.' : 'TomTom incidents HTTP ' + r.status);
+  M.inc = normTomTom(await r.json()); M.live = true; M.updated = new Date();
+}
+async function loadBumps() {
+  if (M.bumps) return;
+  const cached = store.get('rp.bumps.v1');
+  if (cached) { try { const c = JSON.parse(cached); if (Date.now() - c.t < 7 * 864e5) { M.bumps = c.pts; return } } catch {} }
+  const q = '[out:json][timeout:60];nwr["traffic_calming"~"^(bump|hump|table|cushion)$"](24.2,54.2,24.7,54.9);out center;'; let last = '';
+  for (const m of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']) {
+    try { const r = await fetch(m, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'content-type': 'application/x-www-form-urlencoded' } });
+      if (!r.ok) { last = 'HTTP ' + r.status; continue }
+      const j = await r.json(); M.bumps = (j.elements || []).map(e => [e.lon ?? e.center?.lon, e.lat ?? e.center?.lat, e.tags.traffic_calming]).filter(p => p[0] != null);
+      store.set('rp.bumps.v1', JSON.stringify({ t: Date.now(), pts: M.bumps })); return;
+    } catch (e) { last = e.message }
+  }
+  throw new Error('OpenStreetMap speed-bump data unavailable (' + last + ')');
+}
+async function loadFlow() {
+  await Promise.all(SNAP.hospitals.filter(h => h.major).map(async h => { try {
+    const r = await fetch(`${TT}/traffic/services/4/flowSegmentData/absolute/10/json?point=${h.lat},${h.lon}&unit=KMPH&key=${encodeURIComponent(M.key)}`); if (!r.ok) return;
+    const f = (await r.json()).flowSegmentData; if (f) M.flow[h.name] = { cur: f.currentSpeed, free: f.freeFlowSpeed } } catch {} }));
+}
+
+/* ---------- map layers ---------- */
+const emptyGeo = { type: 'FeatureCollection', features: [] };
+const placesGeo = () => ({ type: 'FeatureCollection', features: [...SNAP.hospitals.map(h => ({ type: 'Feature', properties: { kind: 'hospital', name: h.name }, geometry: { type: 'Point', coordinates: [h.lon, h.lat] } })), ...SNAP.fire.map(h => ({ type: 'Feature', properties: { kind: 'fire', name: h.name }, geometry: { type: 'Point', coordinates: [h.lon, h.lat] } }))] });
+const placeTowers = () => ({ type: 'FeatureCollection', features: [...SNAP.hospitals.map(h => ({ type: 'Feature', properties: { c: '#5b93ff', h: h.major ? 220 : 110 }, geometry: { type: 'Polygon', coordinates: circle(h.lon, h.lat, 35) } })), ...SNAP.fire.map(h => ({ type: 'Feature', properties: { c: '#ff7a59', h: 90 }, geometry: { type: 'Polygon', coordinates: circle(h.lon, h.lat, 30) } }))] });
+const incLines = () => ({ type: 'FeatureCollection', features: M.inc.map((i, n) => ({ type: 'Feature', properties: { n, cat: i.cat, c: i.cat === 'jam' ? MAG_COLOR[i.mag] : i.cat === 'closed' ? '#b0161a' : '#f2b632' }, geometry: { type: 'LineString', coordinates: i.geom } })) });
+const jamTowers = () => ({ type: 'FeatureCollection', features: M.inc.flatMap((i, n) => { if (i.cat !== 'jam') return []; const m = i.geom[Math.floor(i.geom.length / 2)]; return [{ type: 'Feature', properties: { n, h: Math.max(40, i.delay * 1.6), c: MAG_COLOR[i.mag] }, geometry: { type: 'Polygon', coordinates: circle(m[0], m[1], 55) } }] }) });
+const bumpsGeo = () => ({ type: 'FeatureCollection', features: (M.bumps || []).map(p => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [p[0], p[1]] } })) });
+const setData = (id, d) => { const s = map.getSource(id); if (s) s.setData(d) };
+const vis = (id, on) => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none') };
+const flowUrl = () => `${TT}/traffic/map/4/tile/flow/relative/{z}/{x}/{y}.png?key=${encodeURIComponent(M.key)}&tileSize=256&t=${Math.floor(Date.now() / 120000)}`;
+
+function addAll() {
+  const add = (id, d) => { if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: d }) };
+  add('places', placesGeo()); add('ptowers', placeTowers()); add('inc', incLines()); add('jtowers', jamTowers()); add('bumps', bumpsGeo()); add('route', emptyGeo); add('rbumps', emptyGeo);
+  const L = d => { if (!map.getLayer(d.id)) map.addLayer(d) };
+  const st = map.getStyle(), has3d = (st.layers || []).some(l => l.type === 'fill-extrusion'), vec = Object.keys(st.sources || {}).find(k => st.sources[k].type === 'vector');
+  if (!has3d && vec) L({ id: 'rp-b3d', type: 'fill-extrusion', source: vec, 'source-layer': 'building', minzoom: 13, paint: { 'fill-extrusion-color': M.style === 'grey' ? '#3a444b' : '#c9ccd2', 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 12], 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0], 'fill-extrusion-opacity': 0.85 } });
+  if (M.key && !map.getSource('flow')) map.addSource('flow', { type: 'raster', tileSize: 256, maxzoom: 18, tiles: [flowUrl()], attribution: 'Traffic © TomTom' });
+  if (map.getSource('flow')) L({ id: 'flow', type: 'raster', source: 'flow', paint: { 'raster-opacity': 0.9 } });
+  L({ id: 'inc-closed', type: 'line', source: 'inc', filter: ['==', ['get', 'cat'], 'closed'], paint: { 'line-color': '#b0161a', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 16, 6], 'line-dasharray': [2, 1.5] } });
+  L({ id: 'inc-works', type: 'line', source: 'inc', filter: ['==', ['get', 'cat'], 'works'], paint: { 'line-color': '#f2b632', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 16, 6], 'line-dasharray': [1, 1.2] } });
+  L({ id: 'inc-jam', type: 'line', source: 'inc', filter: ['==', ['get', 'cat'], 'jam'], paint: { 'line-color': ['get', 'c'], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 10] } });
+  L({ id: 'jam-tower', type: 'fill-extrusion', source: 'jtowers', paint: { 'fill-extrusion-color': ['get', 'c'], 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-opacity': 0.85 } });
+  L({ id: 'bumps', type: 'circle', source: 'bumps', minzoom: 11, paint: { 'circle-color': '#f2b632', 'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 1.5, 16, 5], 'circle-stroke-color': '#111', 'circle-stroke-width': 0.6, 'circle-opacity': 0.9 } });
+  L({ id: 'place-tower', type: 'fill-extrusion', source: 'ptowers', paint: { 'fill-extrusion-color': ['get', 'c'], 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-opacity': 0.9 } });
+  L({ id: 'place-dot', type: 'circle', source: 'places', paint: { 'circle-color': ['case', ['==', ['get', 'kind'], 'hospital'], '#5b93ff', '#ff7a59'], 'circle-radius': 6, 'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5 } });
+  L({ id: 'route-casing', type: 'line', source: 'route', paint: { 'line-color': '#0b1114', 'line-width': 9 }, layout: { 'line-cap': 'round', 'line-join': 'round' } });
+  L({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#38c6b2', 'line-width': 5 }, layout: { 'line-cap': 'round', 'line-join': 'round' } });
+  L({ id: 'rbump', type: 'circle', source: 'rbumps', paint: { 'circle-radius': 7, 'circle-stroke-color': '#0b1013', 'circle-stroke-width': 2, 'circle-color': ['match', ['get', 's'], 'lowered', '#38c6b2', 'refused', '#ff5d52', 'reset', '#8c9ca5', '#f2b632'] } });
+  applyVis(); refreshData();
+}
+function applyVis() {
+  if (!map || !map.getStyle()) return; const l = M.layers;
+  vis('flow', l.flow && !!M.key); ['inc-closed', 'inc-works', 'inc-jam'].forEach(id => vis(id, l.inc)); vis('jam-tower', l.towers);
+  ['place-tower', 'place-dot'].forEach(id => vis(id, l.places)); vis('bumps', l.bumps);
+  (map.getStyle().layers || []).forEach(x => { if (x.type === 'fill-extrusion' && !['jam-tower', 'place-tower'].includes(x.id)) vis(x.id, l.b3d) });
+  ucMarkers.forEach(m => { m.getElement().style.display = (l.uc && (M.ucFilter === 'ALL' || m._g === M.ucFilter)) ? '' : 'none' });
+}
+function refreshData() { if (!map || !map.getSource('inc')) return; setData('inc', incLines()); setData('jtowers', jamTowers()); setData('bumps', bumpsGeo()); placeO3() }
+
+/* ---------- use-case markers ---------- */
+function nearInfo(at) {
+  const inc = M.inc.filter(i => i.cat !== 'works' && i.geom.some(p => hav(p, at) < 1500)).length;
+  const bump = M.bumps ? M.bumps.filter(p => hav(p, at) < 500).length : null;
+  return `Real data near this point: ${inc} ${inc === 1 ? 'jam or closure' : 'jams or closures'} within 1.5 km${bump == null ? '' : ', ' + bump + ' speed bumps within 500 m'}.`;
+}
+function ucEvidence(code) {
+  if (code === 'O3') { const n = M.inc.filter(i => i.cat === 'works').length; return `${n} roadworks sites are mapped right now (${M.live ? 'live' : 'snapshot'}).` }
+  if (code === 'C2') return `${M.inc.filter(i => i.cat === 'broken').length} broken-down vehicles reported by TomTom now.`;
+  if (code === 'N3') return `${M.inc.filter(i => i.cat === 'flood').length} flooding reports from TomTom now.`;
+  return '';
+}
+function popupHTML(u) {
+  const [code, title, risk, fix, at, where, scn] = u, ev = ucEvidence(code);
+  return `<div class="rpm-pop"><b style="color:${GROUPS[code[0]][1]}">${code}</b> · <b>${esc(title)}</b><p><span class="rpm-note">Site (illustrative):</span> ${esc(where)}</p><p><span class="rpm-note">Risk:</span> ${esc(risk)}</p><p><span class="rpm-note">Solution:</span> ${esc(fix)}</p>${ev ? `<p class="rpm-ok">${esc(ev)}</p>` : ''}<p class="rpm-note">${esc(nearInfo(at))}</p>${scn ? `<button class="btn primary rpm-btn" data-run="${scn}" type="button">Run scenario in Live</button>` : '<span class="rpm-note">No scripted scenario for this case in the Live view yet.</span>'}</div>`;
+}
+function buildUC() {
+  ucMarkers.forEach(m => m.remove()); ucMarkers = [];
+  UC.forEach(u => { const el = document.createElement('div'); el.className = 'rpm-ucm'; el.style.setProperty('--c', GROUPS[u[0][0]][1]); el.textContent = u[0]; el.title = u[0] + ' ' + u[1];
+    const mk = new maplibregl.Marker({ element: el }).setLngLat(u[4]).addTo(map); mk._g = u[0][0]; mk._u = u; mk._c = u[0];
+    el.addEventListener('click', ev => { ev.stopPropagation(); selectUC(u[0], false) }); ucMarkers.push(mk) });
+  placeO3(); applyVis();
+}
+function placeO3() { // O3 sits on the longest real roadworks site
+  const mk = ucMarkers.find(m => m._c === 'O3'); if (!mk) return; const w = M.inc.filter(i => i.cat === 'works').sort((a, b) => b.len - a.len)[0];
+  if (w) { const m = w.geom[Math.floor(w.geom.length / 2)]; mk.setLngLat(m); mk._u[4] = m; mk._u[5] = 'Longest roadworks site now (' + (w.from || 'unnamed').slice(0, 40) + ')' }
+}
+function selectUC(code, fly = true) {
+  const mk = ucMarkers.find(m => m._c === code); if (!mk) return; ucMarkers.forEach(m => m.getElement().classList.toggle('sel', m === mk));
+  const u = mk._u; if (fly) map.flyTo({ center: u[4], zoom: 14.5, pitch: 60, duration: 1200 });
+  if (popup) popup.remove(); popup = new maplibregl.Popup({ offset: 18, closeButton: true, maxWidth: '320px' }).setLngLat(u[4]).setHTML(popupHTML(u)).addTo(map);
+}
+function renderUC() {
+  $('rpm-ucFilter').innerHTML = ['ALL', ...Object.keys(GROUPS)].map(g => `<button class="rpm-chip" data-g="${g}" aria-pressed="${M.ucFilter === g}" type="button">${g === 'ALL' ? 'All 37' : g + ' · ' + GROUPS[g][0].split(' ')[0]}</button>`).join('');
+  const list = UC.filter(u => M.ucFilter === 'ALL' || u[0][0] === M.ucFilter); $('rpm-ucCount').textContent = list.length + ' shown';
+  $('rpm-ucList').innerHTML = list.map(u => `<div class="rpm-uc-row" data-c="${u[0]}"><span class="rpm-ucm" style="--c:${GROUPS[u[0][0]][1]};width:26px;height:26px">${u[0]}</span><span>${esc(u[1])}<small>${esc(u[5])}</small></span></div>`).join('');
+}
+
+/* ---------- panels ---------- */
+function setBadge() {
+  const b = $('rpm-badge'); b.querySelector('i').style.background = M.live ? 'var(--ok)' : 'var(--amber)';
+  $('rpm-badgeText').textContent = M.live ? 'LIVE · ' + M.updated.toLocaleTimeString() : 'Snapshot';
+  $('rpm-srcNote').textContent = M.live ? 'Incidents and traffic flow come straight from TomTom, refreshed every 2 minutes.' : `Real data captured ${new Date(SNAP.capturedAt).toLocaleString('en-GB', { timeZone: 'Asia/Dubai', dateStyle: 'medium', timeStyle: 'short' })} Gulf time. Add a TomTom key to go live.`;
+  $('rpm-flowNote').textContent = M.key ? '' : '(needs key)'; $('rpm-netTime').textContent = M.live ? 'live' : 'snapshot';
+}
+function hospRows() {
+  const sec = +$('rpm-sec').value;
+  return SNAP.hospitals.map(h => { const n = M.bumps ? M.bumps.filter(p => hav(p, [h.lon, h.lat]) < 1000).length : null;
+    return { h, n, up: n == null ? null : n * sec, inc: M.inc.filter(i => i.cat !== 'works' && i.geom.some(p => hav(p, [h.lon, h.lat]) < 1500)).length, fl: M.flow[h.name] } }).sort((a, b) => (b.n ?? -1) - (a.n ?? -1));
+}
+function renderNet() {
+  const jams = M.inc.filter(i => i.cat === 'jam'), closed = M.inc.filter(i => i.cat === 'closed'), works = M.inc.filter(i => i.cat === 'works'), delay = jams.reduce((a, b) => a + b.delay, 0);
+  $('rpm-kpis').innerHTML = [[jams.length, 'Traffic jams'], [fmtMin(delay), 'Total jam delay'], [closed.length, 'Road closures'], [works.length, 'Roadworks']].map(([v, l]) => `<div class="rpm-kpi"><b>${v}</b><span>${l}</span></div>`).join('');
+  const f = [], worst = jams.slice().sort((a, b) => b.delay - a.delay)[0];
+  f.push(worst ? `Worst jam: <b>${worst.delay} s</b> over ${worst.len} m (${esc(worst.mag)}) on <span dir="auto">${esc(worst.from)}</span>.` : 'No traffic jams reported right now.');
+  if (closed.length) f.push(`<b>${closed.length}</b> ${closed.length === 1 ? 'closure covers' : 'closures cover'} ${fmtKm(closed.reduce((a, b) => a + b.len, 0))} of road.`);
+  const near = SNAP.hospitals.filter(h => h.major).map(h => ({ h, n: M.inc.filter(i => i.cat !== 'works' && i.geom.some(p => hav(p, [h.lon, h.lat]) < 1500)).length })).sort((a, b) => b.n - a.n)[0];
+  if (near && near.n) f.push(`Most disrupted hospital approach: <b>${esc(near.h.name)}</b> with ${near.n} ${near.n === 1 ? 'jam or closure' : 'jams or closures'} within 1.5 km.`);
+  if (M.bumps) { const top = hospRows()[0]; if (top && top.n) f.push(`Most speed bumps near a hospital: <b>${esc(top.h.name)}</b> with ${top.n} within 1 km.`); f.push(`<b>${M.bumps.length.toLocaleString()}</b> speed bumps, humps and tables mapped across the area.`) }
+  $('rpm-finds').innerHTML = f.map(x => `<li>${x}</li>`).join('');
+}
+function renderHosp() {
+  $('rpm-bumpState').textContent = M.bumps ? '' : (M.bumpsErr || 'loading speed bumps…');
+  const rows = hospRows(), max = Math.max(1, ...rows.map(r => r.n || 0));
+  $('rpm-hosp').innerHTML = '<tr><th>Hospital</th><th>Bumps ≤1 km</th><th>Max delay</th><th>Jams ≤1.5 km</th>' + (M.key ? '<th>Speed</th>' : '') + '</tr>' + rows.map(r =>
+    `<tr class="rpm-tr" data-lon="${r.h.lon}" data-lat="${r.h.lat}"><td style="white-space:normal">${esc(r.h.name)}</td><td>${r.n ?? '…'}<div class="rpm-bar"><i style="width:${(r.n || 0) / max * 100}%"></i></div></td><td>${r.up == null ? '…' : r.up + ' s'}</td><td>${r.inc}</td>${M.key ? `<td>${r.fl ? Math.round(r.fl.cur) + '/' + Math.round(r.fl.free) : '–'}</td>` : ''}</tr>`).join('');
+}
+function fillSelects() {
+  const o = a => a.map(p => `<option value="${p.lon},${p.lat}">${esc(p.name)}</option>`).join('');
+  $('rpm-from').innerHTML = '<optgroup label="Civil defence">' + o(SNAP.fire) + '</optgroup><optgroup label="Hospitals">' + o(SNAP.hospitals) + '</optgroup>'; $('rpm-to').innerHTML = o(SNAP.hospitals);
+  $('rpm-from').selectedIndex = SNAP.fire.findIndex(f => /Al Zaab/.test(f.name)); $('rpm-to').selectedIndex = 0;
+}
+$('rpm-legend').innerHTML = '<div><span class="rpm-dot" style="background:#f2b632"></span>E emergency · <span class="rpm-dot" style="background:#38c6b2"></span>C civilians</div><div><span class="rpm-dot" style="background:#ff5d52"></span>S security · <span class="rpm-dot" style="background:#6f8ef0"></span>N environment</div><div><span class="rpm-dot" style="background:#b48aff"></span>H health · <span class="rpm-dot" style="background:#4fd18b"></span>O operations</div><div><span class="rpm-dot" style="background:#5b93ff"></span>Hospital <span class="rpm-dot" style="background:#ff7a59"></span>Civil defence</div><div><span class="rpm-dot" style="background:#ff3b30"></span>Jam (tower = delay) <span class="rpm-dot" style="background:#b0161a"></span>Closed</div>';
+
+/* ---------- routing + RapidPass corridor run ---------- */
+async function getRoute(a, b) {
+  if (M.key) { const r = await fetch(`${TT}/routing/1/calculateRoute/${a[1]},${a[0]}:${b[1]},${b[0]}/json?key=${encodeURIComponent(M.key)}&traffic=true&travelMode=car&routeRepresentation=polyline&computeTravelTimeFor=all`);
+    if (r.ok) { const rt = (await r.json()).routes[0], s = rt.summary; return { src: 'TomTom live traffic', coords: rt.legs.flatMap(l => l.points.map(p => [p.longitude, p.latitude])), m: s.lengthInMeters, s: s.travelTimeInSeconds, delay: s.trafficDelayInSeconds ?? 0 } } }
+  const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${a[0]},${a[1]};${b[0]},${b[1]}?overview=full&geometries=geojson`);
+  if (!r.ok) throw new Error('Routing failed (HTTP ' + r.status + ')'); const rt = (await r.json()).routes[0];
+  return { src: 'OSRM free-flow (no live traffic)', coords: rt.geometry.coordinates, m: rt.distance, s: rt.duration, delay: null };
+}
+function routeBumps(coords) {
+  if (!M.bumps) return [];
+  const cum = [0]; for (let i = 1; i < coords.length; i++) cum.push(cum[i - 1] + hav(coords[i - 1], coords[i]));
+  const out = []; for (const p of M.bumps) { if (distToLine([p[0], p[1]], coords) >= 25) continue; let bi = 0, bd = Infinity; for (let i = 0; i < coords.length; i++) { const d = hav(coords[i], [p[0], p[1]]); if (d < bd) { bd = d; bi = i } } out.push({ p: [p[0], p[1]], d: cum[bi], s: 'raised' }) }
+  return { list: out.sort((a, b) => a.d - b.d), cum };
+}
+async function planRoute() {
+  const a = $('rpm-from').value.split(',').map(Number), b = $('rpm-to').value.split(',').map(Number), out = $('rpm-routeOut'); out.textContent = 'Planning…'; $('rpm-plan').disabled = true; stopRun();
+  try {
+    await loadBumps().catch(e => { M.bumpsErr = e.message }); const r = await getRoute(a, b); M.route = r;
+    setData('route', { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: r.coords } }); setData('rbumps', emptyGeo);
+    map.fitBounds(r.coords.reduce((bx, p) => bx.extend(p), new maplibregl.LngLatBounds(r.coords[0], r.coords[0])), { padding: 80, pitch: M.pitch, duration: 1200 });
+    const sec = +$('rpm-sec').value, rb = routeBumps(r.coords), n = rb.list ? rb.list.length : null, lost = n == null ? null : n * sec;
+    const blocks = M.inc.filter(i => i.cat !== 'works' && i.geom.some(p => distToLine(p, r.coords) < 40));
+    out.innerHTML = `<div class="rpm-kpis"><div class="rpm-kpi"><b>${fmtKm(r.m)}</b><span>Distance</span></div><div class="rpm-kpi"><b>${fmtMin(r.s)}</b><span>${r.delay == null ? 'Free-flow time' : 'Time with live traffic'}</span></div>
+      <div class="rpm-kpi"><b>${r.delay == null ? 'n/a' : r.delay + ' s'}</b><span>Traffic delay now</span></div><div class="rpm-kpi"><b>${n ?? 'n/a'}</b><span>Speed bumps on route</span></div>
+      <div class="rpm-kpi"><b>${lost == null ? 'n/a' : '~' + lost + ' s'}</b><span>Est. lost to bumps (${sec} s each)</span></div><div class="rpm-kpi"><b>${blocks.length}</b><span>Jams or closures on route</span></div></div>
+      <p>${lost != null ? `A RapidPass corridor that lowers these units could save up to <b>${lost} s</b> (${(lost / r.s * 100).toFixed(1)}% of the trip).` : 'Speed-bump data is unavailable, so time saved cannot be estimated.'} ${esc(r.src)}${M.bumpsErr && !M.bumps ? ' · ' + esc(M.bumpsErr) : ''}</p>`;
+    $('rpm-run').disabled = !(rb.list && rb.list.length);
+    $('rpm-run').title = $('rpm-run').disabled ? 'No speed bumps on this route to run against' : '';
+  } catch (e) { out.innerHTML = `<span class="rpm-err">${esc(e.message)}</span>` }
+  $('rpm-plan').disabled = false;
+}
+function stopRun() { if (M.run) { M.run.stop = true; M.run = null } if (vehMarker) { vehMarker.remove(); vehMarker = null } $('rpm-stop').disabled = true; $('rpm-plan').disabled = false }
+async function startRun() {
+  if (!M.route || !window.crypto || !crypto.subtle) return; const beh = $('rpm-beh').value, sec = +$('rpm-sec').value, r = M.route, rb = routeBumps(r.coords); if (!rb.list || !rb.list.length) return;
+  stopRun(); $('rpm-run').disabled = true; $('rpm-stop').disabled = false; $('rpm-plan').disabled = true;
+  const fromN = $('rpm-from').selectedOptions[0].text, toN = $('rpm-to').selectedOptions[0].text, plate = 'H ' + (1000 + Math.floor(Math.random() * 9000));
+  const inc = await P.createIncident({ type: 'medical', location: `${fromN} → ${toN}` }); await P.issuePass(inc.id, { plate, agency: 'Ambulance Corp' });
+  if (beh === 'returning') await P.setStatus(inc.id, plate, 'returning');
+  const run = { stop: false, bumps: rb.list, cum: rb.cum, total: rb.cum[rb.cum.length - 1], t0: performance.now(), dur: 18000, lowered: 0, refused: 0, passed: 0, plate, incId: inc.id, sent: 0 }; M.run = run;
+  const el = document.createElement('div'); el.className = 'rpm-veh'; vehMarker = new maplibregl.Marker({ element: el }).setLngLat(r.coords[0]).addTo(map);
+  map.easeTo({ center: r.coords[0], zoom: 15.2, pitch: 62, duration: 900 });
+  const paint = () => setData('rbumps', { type: 'FeatureCollection', features: run.bumps.map(b => ({ type: 'Feature', properties: { s: b.s }, geometry: { type: 'Point', coordinates: b.p } })) });
+  const upd = (note) => { $('rpm-routeOut').innerHTML = `<div class="rpm-kpis"><div class="rpm-kpi"><b>${run.lowered}</b><span>Units lowered for ${esc(plate)}</span></div><div class="rpm-kpi"><b>${run.refused}</b><span>Requests refused</span></div><div class="rpm-kpi"><b>${run.lowered * sec} s</b><span>Time saved (${sec} s per bump)</span></div><div class="rpm-kpi"><b>${run.passed}/${run.bumps.length}</b><span>Bumps passed</span></div></div><p class="rpm-note">${esc(note)}</p>` };
+  paint(); upd('Driving the route. At each speed bump within 120 m the vehicle sends a signed message and the edge verifies it.');
+  const ask = async (b, i) => {
+    let mode = 'valid'; if (beh === 'clone') mode = 'forged'; else if (beh === 'replay') mode = run.sent === 0 ? 'valid' : 'replay'; run.sent++;
+    try { const res = await P.simulate(plate, mode, 'Bump ' + (i + 1)); b.s = res.ok ? 'lowered' : 'refused'; res.ok ? run.lowered++ : run.refused++; b.why = res.reason } catch (e) { b.s = 'refused'; run.refused++; b.why = e.message }
+    b.res = true; paint(); upd(b.s === 'lowered' ? `Bump ${i + 1}: pass accepted, unit lowered.` : `Bump ${i + 1}: request refused (${b.why}), unit stays raised.`);
+  };
+  const tick = now => {
+    if (run.stop) return; const d = Math.min(run.total, (now - run.t0) / run.dur * run.total);
+    let k = 1; while (k < run.cum.length - 1 && run.cum[k] < d) k++; const f = (d - run.cum[k - 1]) / Math.max(1, run.cum[k] - run.cum[k - 1]), A = r.coords[k - 1], B = r.coords[k];
+    const pos = [A[0] + (B[0] - A[0]) * Math.min(1, f), A[1] + (B[1] - A[1]) * Math.min(1, f)]; vehMarker.setLngLat(pos); map.jumpTo({ center: pos });
+    run.bumps.forEach((b, i) => { if (!b.asked && b.d - d <= 120) { b.asked = true; ask(b, i) } if (b.res && !b.done && d > b.d + 15) { b.done = true; run.passed++; if (b.s === 'lowered') b.s = 'reset'; paint() } });
+    if (d >= run.total) { run.bumps.forEach(b => { if (!b.done) { b.done = true; run.passed++ } }); upd(`Run complete: ${run.lowered} of ${run.bumps.length} units lowered, ${run.refused} refused, about ${run.lowered * sec} s saved. Every decision is in the Passes audit log.`); $('rpm-run').disabled = false; $('rpm-stop').disabled = true; $('rpm-plan').disabled = false; return }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+/* ---------- refresh / wiring ---------- */
+async function refreshLive(manual) {
+  $('rpm-err').textContent = ''; if (!M.key) { if (manual) $('rpm-err').textContent = 'Add a TomTom key to refresh live data.'; return }
+  try { await loadLiveIncidents(); refreshData(); setBadge(); renderNet(); renderHosp(); const s = map.getSource('flow'); if (s && s.setTiles) s.setTiles([flowUrl()]);
+    if (manual || !Object.keys(M.flow).length || Date.now() - flowTimer > 600000) { flowTimer = Date.now(); await loadFlow(); renderHosp() } }
+  catch (e) { $('rpm-err').textContent = e.message; $('rpm-badge').querySelector('i').style.background = 'var(--red)' }
+}
+function startLive() {
+  clearInterval(incTimer); if (!M.key || !mapReady) return;
+  if (map.isStyleLoaded() && !map.getSource('flow')) { map.addSource('flow', { type: 'raster', tileSize: 256, maxzoom: 18, tiles: [flowUrl()], attribution: 'Traffic © TomTom' }); map.addLayer({ id: 'flow', type: 'raster', source: 'flow', paint: { 'raster-opacity': 0.9 } }, 'inc-closed') }
+  M.layers.flow = true; document.querySelector('#v-map [data-l=flow]').checked = true; applyVis(); refreshLive(true);
+  incTimer = setInterval(() => { if (!document.hidden && !$('v-map').hidden) refreshLive(false) }, 120000);
+}
+function initMap() {
+  M.inc = normSnapshot(); M.updated = new Date(SNAP.capturedAt); fillSelects(); renderUC(); setBadge(); renderNet(); renderHosp();
+  if (!window.maplibregl) { $('rpm-err').textContent = 'The map library did not load. Check your connection and reload.'; return }
+  map = new maplibregl.Map({ container: 'rpm-map', style: STYLES[M.style], center: CENTER, zoom: 11.3, pitch: M.pitch, bearing: -18, maxPitch: 75, attributionControl: { compact: true } });
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right'); map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
+  map.on('style.load', addAll);
+  map.once('load', () => { mapReady = true; buildUC(); if (M.key) startLive(); loadBumps().then(() => { refreshData(); renderHosp(); renderNet() }).catch(e => { M.bumpsErr = e.message; renderHosp() }) });
+  map.on('click', e => { const f = map.queryRenderedFeatures(e.point, { layers: ['place-dot', 'inc-jam', 'inc-closed', 'inc-works', 'jam-tower'].filter(id => map.getLayer(id)) })[0]; if (!f) return; let h = '';
+    if (f.properties.kind) h = `<b>${esc(f.properties.name)}</b><br>${f.properties.kind === 'hospital' ? 'Hospital' : 'Civil defence / fire station'}`;
+    else { const i = M.inc[f.properties.n]; if (i) h = `<b>${esc({ jam: 'Traffic jam', closed: 'Road closed', works: 'Roadworks', accident: 'Accident', broken: 'Broken-down vehicle', flood: 'Flooding', other: 'Incident' }[i.cat])}</b>${i.mag !== 'closed' && i.mag !== 'unknown' ? ' (' + esc(i.mag) + ')' : ''}<br><span dir="auto">${esc(i.from)} → ${esc(i.to)}</span><br>${i.delay ? 'Delay ' + i.delay + ' s · ' : ''}${i.len} m${i.road ? ' · road ' + esc(i.road) : ''}<br>${esc(i.desc)}` }
+    if (h) { if (popup) popup.remove(); popup = new maplibregl.Popup({ closeButton: false }).setLngLat(e.lngLat).setHTML(h).addTo(map) } });
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-run]'); if (b && window.RPConsole) window.RPConsole.load(b.dataset.run) });
+$('rpm-ucFilter').addEventListener('click', e => { const b = e.target.closest('[data-g]'); if (!b) return; M.ucFilter = b.dataset.g; renderUC(); applyVis() });
+$('rpm-ucList').addEventListener('click', e => { const r = e.target.closest('[data-c]'); if (r) selectUC(r.dataset.c) });
+$('rpm-hosp').addEventListener('click', e => { const t = e.target.closest('tr.rpm-tr'); if (t) map.flyTo({ center: [+t.dataset.lon, +t.dataset.lat], zoom: 15.2, pitch: 62, duration: 1400 }) });
+$('rpm-key').value = M.key === DEFAULT_KEY ? '' : M.key; $('rpm-key').placeholder = M.key === DEFAULT_KEY ? 'built-in key in use' : 'paste key';
+$('rpm-keySave').onclick = () => { const k = $('rpm-key').value.trim(); if (!k) return; M.key = k; store.set('rp.tomtom', k); startLive() };
+$('rpm-keyClear').onclick = () => { M.key = ''; store.set('rp.tomtom', ''); clearInterval(incTimer); M.flow = {}; M.layers.flow = false; document.querySelector('#v-map [data-l=flow]').checked = false; M.inc = normSnapshot(); M.live = false; M.updated = new Date(SNAP.capturedAt); applyVis(); refreshData(); setBadge(); renderNet(); renderHosp() };
+$('rpm-refresh').onclick = () => refreshLive(true);
+$('rpm-plan').onclick = planRoute; $('rpm-run').onclick = () => startRun().catch(e => { $('rpm-routeOut').innerHTML = `<span class="rpm-err">${esc(e.message)}</span>`; stopRun() }); $('rpm-stop').onclick = stopRun;
+$('rpm-green').onclick = () => window.RPConsole && window.RPConsole.load('corridor');
+$('rpm-sec').oninput = () => { $('rpm-secv').textContent = $('rpm-sec').value; renderHosp() };
+document.querySelectorAll('#v-map [data-l]').forEach(c => c.onchange = () => { M.layers[c.dataset.l] = c.checked; applyVis() });
+$('rpm-tilt').onclick = () => { M.pitch = map.getPitch() > 10 ? 0 : 58; map.easeTo({ pitch: M.pitch, duration: 700 }) };
+$('rpm-reset').onclick = () => map.flyTo({ center: CENTER, zoom: 11.3, pitch: 58, bearing: -18, duration: 1200 });
+$('rpm-style').onclick = () => { M.style = M.style === 'light' ? 'grey' : 'light'; map.setStyle(STYLES[M.style]) };
+window.RPMap = { activate() { if (!map) initMap(); else requestAnimationFrame(() => map.resize()) }, M, P, UC, state: () => ({ map, mapReady }), selectUC, hospRows, planRoute, startRun, stopRun };
+})();
+
+</script>
 </body></html>

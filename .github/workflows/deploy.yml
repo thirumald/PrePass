@@ -21,8 +21,7 @@ jobs:
       - name: Stage static site
         run: |
           mkdir _site
-          cp index.html passes.html map.html _site/
-          cp -r data _site/data
+          cp index.html _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
