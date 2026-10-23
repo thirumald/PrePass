@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RapidPass</title>
+<style>
+:root{--bg:#0e1316;--panel:#151c20;--line:#26323a;--fg:#e4ecef;--muted:#8c9ca5;--amber:#f2b632;--teal:#38c6b2;--red:#ff5d52;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,sans-serif;padding:16px;max-width:1100px;margin-inline:auto}
+h1{font-size:22px;letter-spacing:.05em;text-transform:uppercase;margin:0 0 4px}h1 span{color:var(--amber)}
+.sub{color:var(--muted);margin:0 0 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+input,select,button{font:inherit;color:inherit;background:#1b2429;border:1px solid var(--line);border-radius:6px;padding:6px 9px}
+input,select{width:100%}
+button{cursor:pointer}button:hover{border-color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.inc{border-top:1px solid var(--line);padding:8px 0}
+.pill{display:inline-block;border:1px solid;border-radius:10px;padding:0 8px;font-size:12px}
+.ok{color:var(--teal)}.bad{color:var(--red)}.warn{color:var(--amber)}
+pre{margin:0;white-space:pre-wrap;word-break:break-all;font:12px ui-monospace,monospace;color:var(--muted);max-height:260px;overflow:auto}
+#verdict{font:600 15px ui-monospace,monospace;margin-top:10px;min-height:22px}
+</style>
+</head>
+<body>
+<h1>Rapid<span>Pass</span></h1>
+<p class="sub">Priority passes for emergency vehicles. Dispatch status decides; the edge verifies signature, counter and status. This page runs the whole system in your browser (nothing is sent anywhere). Source and Node server: <a href="https://github.com/thirumald/RapidPass" style="color:var(--teal)">github.com/thirumald/RapidPass</a> · <a href="./" style="color:var(--teal)">Abu Dhabi map</a>.</p>
+<div class="grid">
+  <div class="card">
+    <h2>1 · Open incident</h2>
+    <label for="itype">Type</label><select id="itype"><option>medical</option><option>fire</option><option>police</option></select>
+    <label for="iloc">Location</label><input id="iloc" placeholder="Corniche Rd, Abu Dhabi">
+    <div class="row"><button id="newInc">Open incident</button></div>
+  </div>
+  <div class="card">
+    <h2>2 · Issue pass</h2>
+    <label for="pinc">Incident</label><select id="pinc"></select>
+    <label for="pplate">Plate</label><input id="pplate" value="H 8919">
+    <label for="pagency">Agency</label><input id="pagency" value="EMS">
+    <div class="row"><button id="issue">Issue pass</button></div>
+  </div>
+  <div class="card">
+    <h2>3 · Simulate vehicle at roadside unit</h2>
+    <label for="splate">Plate</label><input id="splate" value="H 8919">
+    <div class="row">
+      <button data-mode="valid">Valid message</button>
+      <button data-mode="replay">Replay it</button>
+      <button data-mode="forged">Forged credential</button>
+      <button data-mode="wrongkey">Wrong device key</button>
+    </div>
+    <div id="verdict"></div>
+  </div>
+</div>
+<div class="grid" style="margin-top:12px">
+  <div class="card"><h2>Incidents</h2><div id="incs"></div></div>
+  <div class="card"><h2>Audit log <span id="chain" class="pill"></span></h2><pre id="audit"></pre></div>
+</div>
+<script>
+/* In-browser RapidPass: same rules as src/rapidpass.js, using WebCrypto Ed25519 instead of node:crypto. */
+const enc=new TextEncoder(),b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const canon=v=>Array.isArray(v)?'['+v.map(canon).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canon(v[k])).join(',')+'}':JSON.stringify(v);
+const ED={name:'Ed25519'};
+const newKey=async()=>{const k=await crypto.subtle.generateKey(ED,true,['sign','verify']);return{...k,pub:b64(await crypto.subtle.exportKey('spki',k.publicKey))}};
+const sig=async(o,priv)=>b64(await crypto.subtle.sign(ED,priv,enc.encode(canon(o))));
+const ver=async(o,s,pub)=>{try{return await crypto.subtle.verify(ED,pub,unb64(s),enc.encode(canon(o)))}catch{return false}};
+const pubOf=s=>crypto.subtle.importKey('spki',unb64(s),ED,true,['verify']);
+const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',enc.encode(s)))].map(x=>x.toString(16).padStart(2,'0')).join('');
+const PRIORITY=new Set(['enroute','patient']),STATUSES=['enroute','patient','returning','available'];
+class Err extends Error{}
+const S={authority:null,incidents:new Map(),revoked:new Set(),seq:0,audit:[],sim:new Map(),attacker:null};
+async function audit(type,data){const prev=S.audit.length?S.audit[S.audit.length-1].hash:'GENESIS';const body={seq:S.audit.length+1,ts:new Date().toISOString(),type,data};S.audit.push({...body,prev,hash:await sha(prev+canon(body))})}
+async function chain(){let prev='GENESIS';for(const e of S.audit){const{prev:p,hash,...body}=e;if(p!==prev||await sha(prev+canon(body))!==hash)return{ok:false,brokenAt:e.seq};prev=hash}return{ok:true,length:S.audit.length}}
+const view=i=>({id:i.id,type:i.type,location:i.location,active:i.active,vehicles:[...i.vehicles.values()].map(v=>({plate:v.plate,agency:v.agency,cls:v.cls,status:v.status,kid:v.credential.kid,revoked:S.revoked.has(v.credential.kid)}))});
+const active=id=>{const i=S.incidents.get(id);if(!i)throw new Err('incident not found');if(!i.active)throw new Err('incident is closed');return i};
+async function decide(m){
+  if(!m||!m.cred||typeof m.ctr!=='number'||typeof m.ts!=='number')return{ok:false,reason:'MALFORMED',alert:false};
+  const{sig:cs,...cred}=m.cred;
+  if(!await ver(cred,cs,S.authority.publicKey))return{ok:false,reason:'BAD_CREDENTIAL_SIGNATURE',alert:true};
+  const t=Date.now();
+  if(t<cred.nbf||t>cred.exp)return{ok:false,reason:'CREDENTIAL_EXPIRED',alert:false};
+  if(S.revoked.has(cred.kid))return{ok:false,reason:'CREDENTIAL_REVOKED',alert:false};
+  const inc=S.incidents.get(cred.incident),v=inc&&inc.vehicles.get(cred.plate);
+  if(!inc||!inc.active||!v)return{ok:false,reason:'NOT_DISPATCHED',alert:false};
+  if(!PRIORITY.has(v.status))return{ok:false,reason:'STATUS_NOT_PRIORITY',alert:false};
+  const body={plate:m.plate,incident:m.incident,ctr:m.ctr,ts:m.ts};
+  if(m.plate!==cred.plate||m.incident!==cred.incident||!await ver(body,m.sig,await pubOf(cred.devicePub)))return{ok:false,reason:'BAD_MESSAGE_SIGNATURE',alert:true};
+  if(Math.abs(t-m.ts)>5000)return{ok:false,reason:'STALE_MESSAGE',alert:false};
+  if(m.ctr<=v.lastCtr)return{ok:false,reason:'REPLAY',alert:true};
+  v.lastCtr=m.ctr;return{ok:true,reason:'OK',alert:false};
+}
+async function verify(m,site='S1 EB'){const r=await decide(m);await audit(r.ok?'VERIFY_ACCEPTED':'VERIFY_REJECTED',{site,plate:m&&m.plate||null,reason:r.reason,alert:r.alert});return r}
+const message=async(cred,priv,ctr,ts)=>{const body={plate:cred.plate,incident:cred.incident,ctr,ts};return{cred,...body,sig:await sig(body,priv)}};
+async function route(p,b){
+  if(!S.authority)S.authority=await newKey();
+  let m;
+  if(p==='/api/incidents'&&b===undefined)return[...S.incidents.values()].map(view);
+  b=b||{};
+  if(p==='/api/incidents'){const id='INC-'+(2401+S.seq++);const i={id,type:b.type||'medical',location:b.location||'',active:true,vehicles:new Map()};S.incidents.set(id,i);await audit('INCIDENT_OPENED',{id,type:i.type,location:i.location});return view(i)}
+  if(m=p.match(/^\/api\/incidents\/([^/]+)\/vehicles$/)){
+    const i=active(m[1]);if(!b.plate)throw new Err('plate is required');if(i.vehicles.has(b.plate))throw new Err('vehicle already has a pass on this incident');
+    const dev=await newKey(),t=Date.now(),c={v:1,kid:i.id+':'+b.plate,plate:b.plate,agency:b.agency||'unknown',cls:b.cls||'ambulance',incident:i.id,devicePub:dev.pub,nbf:t,exp:t+7200000};
+    const credential={...c,sig:await sig(c,S.authority.privateKey)};
+    i.vehicles.set(b.plate,{plate:b.plate,agency:c.agency,cls:c.cls,status:'enroute',credential,lastCtr:0});
+    S.sim.set(b.plate,{credential,key:dev.privateKey,ctr:0,last:null});await audit('PASS_ISSUED',{incident:i.id,plate:b.plate,agency:c.agency,kid:c.kid});return{credential}}
+  if(m=p.match(/^\/api\/incidents\/([^/]+)\/status$/)){const i=active(m[1]),v=i.vehicles.get(b.plate);if(!v)throw new Err('vehicle not on this incident');if(!STATUSES.includes(b.status))throw new Err('bad status');v.status=b.status;await audit('STATUS_CHANGED',{incident:i.id,plate:b.plate,status:b.status});return view(i)}
+  if(m=p.match(/^\/api\/incidents\/([^/]+)\/close$/)){const i=active(m[1]);i.active=false;i.vehicles.forEach(v=>S.revoked.add(v.credential.kid));await audit('INCIDENT_CLOSED',{id:i.id,revoked:i.vehicles.size});return view(i)}
+  if(p==='/api/simulate'){
+    const s=S.sim.get(b.plate);if(!s)throw new Err('unknown plate; issue a pass first');let msg;
+    if(b.mode==='valid'){msg=await message(s.credential,s.key,++s.ctr,Date.now());s.last=msg}
+    else if(b.mode==='replay'){if(!s.last)throw new Err('send a valid message first, then replay it');msg=s.last}
+    else if(b.mode==='forged')msg=await message({...s.credential,cls:'fire'},s.key,++s.ctr,Date.now());
+    else if(b.mode==='wrongkey'){S.attacker=S.attacker||(await newKey()).privateKey;msg=await message(s.credential,S.attacker,++s.ctr,Date.now())}
+    else throw new Err('unknown mode');
+    return{mode:b.mode,...await verify(msg)}}
+  if(p==='/api/audit')return{chain:await chain(),entries:S.audit.slice(-200).reverse()};
+  throw new Err('not found');
+}
+if(!(window.crypto&&crypto.subtle))document.body.insertAdjacentHTML('afterbegin','<p style="color:#ff5d52">This browser has no WebCrypto. Open the page over https in a current browser.</p>');
+crypto.subtle&&crypto.subtle.generateKey(ED,true,['sign']).catch(()=>document.body.insertAdjacentHTML('afterbegin','<p style="color:#ff5d52">This browser does not support Ed25519 in WebCrypto. Use a current Chrome, Edge, Firefox or Safari 17+.</p>'));
+</script>
+<script>
+const $=id=>document.getElementById(id);
+const api=(p,b)=>route(p,b);
+const esc=s=>String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const guard=fn=>async(...a)=>{try{await fn(...a)}catch(e){$('verdict').innerHTML='<span class="bad">'+esc(e.message)+'</span>'}};
+async function refresh(){
+  const incs=await api('/api/incidents');
+  const sel=$('pinc'),cur=sel.value;
+  sel.innerHTML=incs.filter(i=>i.active).map(i=>`<option ${i.id===cur?'selected':''}>${esc(i.id)}</option>`).join('');
+  $('incs').innerHTML=incs.length?incs.slice().reverse().map(i=>`<div class="inc"><b>${esc(i.id)}</b> ${esc(i.type)} ${esc(i.location)}
+    <span class="pill ${i.active?'ok':'warn'}">${i.active?'active':'closed'}</span>
+    ${i.active?`<button data-close="${esc(i.id)}">Close</button>`:''}
+    ${i.vehicles.map(v=>`<div>${esc(v.plate)} · ${esc(v.agency)} · <select data-inc="${esc(i.id)}" data-plate="${esc(v.plate)}" ${i.active?'':'disabled'} style="width:auto">${['enroute','patient','returning','available'].map(s=>`<option ${s===v.status?'selected':''}>${s}</option>`).join('')}</select> ${v.revoked?'<span class="pill bad">revoked</span>':''}</div>`).join('')}</div>`).join(''):'<span class="sub">No incidents yet.</span>';
+  const a=await api('/api/audit');
+  $('chain').textContent=a.chain.ok?'chain ok':'chain BROKEN at '+a.chain.brokenAt;$('chain').className='pill '+(a.chain.ok?'ok':'bad');
+  $('audit').textContent=a.entries.map(e=>`#${e.seq} ${e.type} ${JSON.stringify(e.data)}`).join('\n');
+}
+$('newInc').onclick=guard(async()=>{await api('/api/incidents',{type:$('itype').value,location:$('iloc').value});await refresh()});
+$('issue').onclick=guard(async()=>{await api(`/api/incidents/${$('pinc').value}/vehicles`,{plate:$('pplate').value,agency:$('pagency').value});$('splate').value=$('pplate').value;await refresh()});
+document.querySelector('[data-mode]').parentElement.addEventListener('click',guard(async e=>{const b=e.target.closest('[data-mode]');if(!b)return;
+  const r=await api('/api/simulate',{plate:$('splate').value,mode:b.dataset.mode});
+  $('verdict').innerHTML=`<span class="${r.ok?'ok':'bad'}">${r.ok?'ACCEPTED':'REJECTED'} · ${esc(r.reason)}</span>${r.alert?' <span class="warn">· police alerted</span>':''}`;await refresh()}));
+$('incs').addEventListener('click',guard(async e=>{const c=e.target.closest('[data-close]');if(c){await api(`/api/incidents/${c.dataset.close}/close`,{});await refresh()}}));
+$('incs').addEventListener('change',guard(async e=>{const s=e.target.closest('select[data-plate]');if(s){await api(`/api/incidents/${s.dataset.inc}/status`,{plate:s.dataset.plate,status:s.value});await refresh()}}));
+guard(refresh)();
+</script>
+</body>
+</html>

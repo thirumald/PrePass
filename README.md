@@ -13,9 +13,15 @@ Priority-pass service for emergency vehicles, built to feed the smart speed brea
 
 Rejections with a forged credential, a wrong device key or a replay set `alert: true` so the caller can notify police.
 
-## Live demo (GitHub Pages)
+## Abu Dhabi map (GitHub Pages)
 
-`index.html` in the repo root is a static copy that runs the whole system in the browser with WebCrypto, so GitHub Pages can serve it. In the repo go to Settings, Pages, and set Source to "GitHub Actions". The workflow in `.github/workflows/deploy.yml` publishes `index.html` on every push to `main`. The site is then at https://thirumald.github.io/RapidPass/. It needs a browser with Ed25519 in WebCrypto (current Chrome, Edge, Firefox, or Safari 17+).
+`map.html` is a static 3D map of Abu Dhabi built with MapLibre and OpenFreeMap. It shows hospitals, civil defence stations, traffic jams, closures and roadworks, with 3D delay towers, plus OpenStreetMap speed bumps and a corridor planner that counts the bumps on a route and estimates the time a RapidPass corridor could save.
+
+- **Without a key** it shows a real snapshot in `data/snapshot.json`, captured from TomTom on 2026-10-23, clearly labelled as a snapshot.
+- **With a TomTom key** (pasted in the page, stored only in the browser) it switches to live incidents, a live traffic-flow layer, per-hospital speeds and traffic-aware routing, refreshing every 2 minutes.
+- Speed bumps come from OpenStreetMap through the Overpass API and may be incomplete.
+
+`passes.html` is a static copy of the pass system that runs in the browser with WebCrypto, so GitHub Pages can serve it. In the repo go to Settings, Pages, and set Source to "GitHub Actions". The workflow in `.github/workflows/deploy.yml` publishes `index.html`, `map.html`, `passes.html` and `data/` on every push to `main`. The Operations Console is at https://thirumald.github.io/RapidPass/, the Abu Dhabi map at https://thirumald.github.io/RapidPass/map.html and the pass demo at https://thirumald.github.io/RapidPass/passes.html. It needs a browser with Ed25519 in WebCrypto (current Chrome, Edge, Firefox, or Safari 17+).
 
 ## Run the Node server
 
