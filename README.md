@@ -27,30 +27,43 @@ Speed bumps come from OpenStreetMap through the Overpass API and may be incomple
 
 To publish: Settings, Pages, Source "GitHub Actions". `.github/workflows/deploy.yml` publishes `index.html` on every push to `main`. The site is at https://thirumald.github.io/RapidPass/.
 
-## Run the Node server
+## Backend (Node server)
 
-Needs Node 20 or later. No dependencies.
+`src/server.js` is the persistent, login-protected API behind the Passes view. No dependencies, Node 20 or later.
+
+- **Persistence:** one JSON file (`DATA_FILE`), written atomically. It holds the signing key, incidents, passes, revocations, users and the audit log. On start the audit chain is verified and the server refuses to run if it was edited.
+- **Logins:** passwords are salted scrypt hashes. Tokens are HMAC-signed and expire after 8 hours. Five wrong attempts lock a user and address for a minute. Removing or demoting a user takes effect immediately.
+- **Roles:** `viewer` reads; `edge` (roadside units) only verifies; `operator` reads, verifies and simulates; `dispatcher` also opens incidents, issues passes and closes incidents; `admin` also manages users. Every change is recorded in the audit log with the user's name.
+- **First start:** an admin account is created from `ADMIN_USER` and `ADMIN_PASSWORD`. If no password is set, a random one is printed once.
+- **Browser access:** set `CORS_ORIGIN` to the site that calls the API (for GitHub Pages, `https://thirumald.github.io`). The API must be served over https.
+- **TomTom proxy:** with `TOMTOM_KEY` set, `GET /api/tomtom/traffic|routing|search/...` forwards to TomTom with the key added on the server and a one-minute cache.
 
 ```
-npm start     # http://localhost:3000
-npm test
+cp .env.example .env     # then export the variables, or set them in your host
+npm start                # http://localhost:3000, serves index.html too
+npm test                 # 28 tests
 ```
 
-The page at `/` walks through open incident, issue pass, then simulate a vehicle (valid, replay, forged, wrong key).
+### API
 
-## API
-
-| Method | Path | Purpose |
+| Method | Path | Needs |
 |---|---|---|
-| POST | `/api/incidents` | Open an incident `{type, location}` |
-| GET | `/api/incidents` | List incidents and vehicles |
-| POST | `/api/incidents/:id/vehicles` | Issue a pass `{plate, agency, cls}` |
-| POST | `/api/incidents/:id/status` | Set status `{plate, status}` |
-| POST | `/api/incidents/:id/close` | Close incident and revoke passes |
-| POST | `/api/verify` | Edge check `{message, site}` |
-| POST | `/api/simulate` | Demo only: act as a vehicle `{plate, mode}` |
-| GET | `/api/audit` | Audit log and chain check |
+| POST | `/api/login` | nothing; returns a token |
+| GET | `/api/health` | nothing |
+| GET | `/api/me` | any login |
+| GET | `/api/incidents`, `/api/audit` | read |
+| POST | `/api/incidents`, `/api/incidents/:id/vehicles`, `/status`, `/close` | write |
+| POST | `/api/verify` | verify |
+| POST | `/api/simulate` | simulate (switch off with `ENABLE_SIMULATE=0`) |
+| GET, POST, DELETE | `/api/users` | admin |
+| GET | `/api/tomtom/*` | read |
+
+Send `Authorization: Bearer <token>`.
+
+### Deploy
+
+The repo has a `Dockerfile` and a Render blueprint (`render.yaml`). Any host that runs a container and keeps a disk at `/data` works. Set `ADMIN_PASSWORD`, `CORS_ORIGIN` and, if wanted, `TOMTOM_KEY`, then paste the server's https address into the Passes view and sign in. GitHub Pages cannot run the server, so the page stays on Pages and the API lives elsewhere.
 
 ## Limits
 
-This is a working prototype, not a deployed system. State is in memory and lost on restart. The server keeps device keys so `/api/simulate` can act as a vehicle; a real deployment would keep them on the vehicle only. There is no authentication on the API and no persistence. The authority key is generated at start-up; production would use an HSM-held key with rotating certificates.
+The signing key lives in the data file; production would hold it in an HSM or secret manager and rotate certificates. Device keys are also stored so the demo simulator can act as a vehicle; real vehicles would keep theirs. There is no password reset or multi-factor login, and login throttling is in memory, so it resets on restart. Tests run in the Tests workflow on every push.

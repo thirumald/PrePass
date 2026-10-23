@@ -81,3 +81,14 @@ test('a second pass for the same vehicle on one incident is refused', () => {
   const { rp, inc } = setup();
   assert.throws(() => rp.issuePass(inc.id, { plate: 'H 8919' }), /already has a pass/);
 });
+
+test('export and import keep the signing key, passes, counters and audit chain', () => {
+  const { rp, inc, credential, devicePrivateKey } = setup();
+  rp.verify(RapidPass.buildMessage(credential, devicePrivateKey, 1, rp.now()));
+  const copy = RapidPass.import(JSON.parse(JSON.stringify(rp.export())));
+  assert.equal(copy.authorityPublicKey, rp.authorityPublicKey);
+  assert.equal(copy.audit.verifyChain().ok, true);
+  assert.equal(copy.verify(RapidPass.buildMessage(credential, devicePrivateKey, 1, copy.now())).reason, 'REPLAY', 'counter state was kept');
+  assert.equal(copy.verify(RapidPass.buildMessage(credential, devicePrivateKey, 2, copy.now())).ok, true);
+  assert.equal(copy.simulate('H 8919', 'valid').ok, true);
+});

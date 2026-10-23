@@ -2,7 +2,7 @@ import { canon, sha256 } from './crypto.js';
 
 /** Append-only log where each entry commits to the previous one, so edits are detectable. */
 export class AuditLog {
-  constructor() { this.entries = []; }
+  constructor(entries = []) { this.entries = entries; }
 
   append(type, data) {
     const prev = this.entries.length ? this.entries[this.entries.length - 1].hash : 'GENESIS';

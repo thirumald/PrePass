@@ -360,6 +360,14 @@ h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.
     <!-- PASSES -->
     <section class="view" id="v-passes" hidden>
       <div class="vhead"><div><h2 class="vt">Passes</h2><p>Signed priority passes for emergency vehicles. Dispatch status decides; the edge verifies signature, counter and status. Runs in your browser with WebCrypto, nothing is sent anywhere.</p></div><span class="badge" id="rpp-chain"><i></i>Audit chain</span></div>
+      <div class="card" style="margin-bottom:12px"><h3>Server <span class="rpm-note" id="rpp-srvState">Browser mode: passes live in this tab only</span></h3>
+        <div class="rpm-note">Connect to a RapidPass server for persistent incidents, logins with roles, and an audit log that survives restarts. The server must allow this site's address in CORS_ORIGIN and be served over https.</div>
+        <div class="rpp-grid" style="margin-top:8px">
+          <div><label class="rpm-lbl" for="rpp-url">Server address</label><input class="rpm-in" id="rpp-url" placeholder="https://rapidpass.example.com"></div>
+          <div><label class="rpm-lbl" for="rpp-user">Username</label><input class="rpm-in" id="rpp-user" autocomplete="username"></div>
+          <div><label class="rpm-lbl" for="rpp-pass">Password</label><input class="rpm-in" id="rpp-pass" type="password" autocomplete="current-password"></div>
+        </div>
+        <div class="rpm-row"><button class="btn primary" id="rpp-connect" type="button">Connect</button><button class="btn" id="rpp-disconnect" type="button" disabled>Disconnect</button></div></div>
       <div class="rpp-grid">
         <div class="card"><h3>1 · Open incident</h3>
           <label class="rpm-lbl" for="rpp-type">Type</label><select class="sel rpm-in" id="rpp-type"><option>medical</option><option>fire</option><option>police</option></select>
@@ -1139,27 +1147,51 @@ const P = { authority: null, incidents: new Map(), revoked: new Set(), seq: 0, a
     else throw new PassError('unknown mode');
     return { mode, ...await this.verify(msg, site) } } };
 
+P.listIncidents = async function () { await this.ready(); return [...this.incidents.values()].map(i => this.view(i)) };
+P.auditInfo = async function () { await this.ready(); return { chain: await this.chain(), entries: this.audit.slice(-200).reverse() } };
+/* ---- optional server mode: same calls, sent to a RapidPass server with a login token ---- */
+const SRV = { url: (store.get('rp.api') || '').replace(/\/+$/, ''), token: '', role: '', user: '' };
+const srvCall = async (path, body, method) => {
+  const r = await fetch(SRV.url + path, { method: method || (body === undefined ? 'GET' : 'POST'), headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...(SRV.token ? { authorization: 'Bearer ' + SRV.token } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new PassError(j.error || 'Server HTTP ' + r.status); return j;
+};
+const Srv = {
+  createIncident: a => srvCall('/api/incidents', a), issuePass: (id, a) => srvCall(`/api/incidents/${encodeURIComponent(id)}/vehicles`, a),
+  setStatus: (id, plate, status) => srvCall(`/api/incidents/${encodeURIComponent(id)}/status`, { plate, status }), close: id => srvCall(`/api/incidents/${encodeURIComponent(id)}/close`, {}),
+  simulate: (plate, mode, site) => srvCall('/api/simulate', { plate, mode, site }), listIncidents: () => srvCall('/api/incidents'),
+  auditInfo: async () => { const a = await srvCall('/api/audit'); return { chain: a.chain, entries: a.entries } } };
+const API = () => SRV.token ? Srv : P;
 /* =====================================================================
    PASSES VIEW
    ===================================================================== */
 async function renderPasses() {
-  const incs = [...P.incidents.values()].map(i => P.view(i)), sel = $('rpp-inc'), cur = sel.value;
+  const incs = await API().listIncidents(), sel = $('rpp-inc'), cur = sel.value;
   sel.innerHTML = incs.filter(i => i.active).map(i => `<option ${i.id === cur ? 'selected' : ''}>${esc(i.id)}</option>`).join('');
   $('rpp-incs').innerHTML = incs.length ? incs.slice().reverse().map(i => `<div class="rpp-inc"><b>${esc(i.id)}</b> ${esc(i.type)} ${esc(i.location)} <span class="pill ${i.active ? 'p-ok' : 'p-hold'}">${i.active ? 'active' : 'closed'}</span>
     ${i.active ? `<button class="btn" data-close="${esc(i.id)}" type="button" style="margin-left:6px;padding:2px 8px">Close</button>` : ''}
     ${i.vehicles.map(v => `<div>${esc(v.plate)} · ${esc(v.agency)} · <select class="sel" data-inc="${esc(i.id)}" data-plate="${esc(v.plate)}" ${i.active ? '' : 'disabled'}>${STATUSES.map(s => `<option ${s === v.status ? 'selected' : ''}>${s}</option>`).join('')}</select> ${v.revoked ? '<span class="pill p-bad">revoked</span>' : ''}</div>`).join('')}</div>`).join('') : '<span class="rpm-note">No incidents yet.</span>';
-  await P.ready(); const c = await P.chain(), b = $('rpp-chain');
+  const info = await API().auditInfo(), c = info.chain, b = $('rpp-chain');
   b.innerHTML = `<i style="background:${c.ok ? 'var(--ok)' : 'var(--red)'}"></i>${c.ok ? 'Audit chain ok (' + c.length + ')' : 'Audit chain BROKEN at ' + c.brokenAt}`;
-  $('rpp-audit').textContent = P.audit.slice(-200).reverse().map(e => `#${e.seq} ${e.type} ${JSON.stringify(e.data)}`).join('\n') || 'No entries yet.';
+  $('rpp-audit').textContent = info.entries.map(e => `#${e.seq} ${e.type} ${JSON.stringify(e.data)}`).join('\n') || 'No entries yet.';
 }
 const ppGuard = fn => async (...a) => { try { await fn(...a) } catch (e) { $('rpp-verdict').innerHTML = '<span class="rpm-bad">' + esc(e.message) + '</span>' } };
-$('rpp-new').onclick = ppGuard(async () => { await P.createIncident({ type: $('rpp-type').value, location: $('rpp-loc').value }); await renderPasses() });
-$('rpp-issue').onclick = ppGuard(async () => { await P.issuePass($('rpp-inc').value, { plate: $('rpp-plate').value, agency: $('rpp-agency').value }); $('rpp-splate').value = $('rpp-plate').value; await renderPasses() });
+$('rpp-new').onclick = ppGuard(async () => { await API().createIncident({ type: $('rpp-type').value, location: $('rpp-loc').value }); await renderPasses() });
+$('rpp-issue').onclick = ppGuard(async () => { await API().issuePass($('rpp-inc').value, { plate: $('rpp-plate').value, agency: $('rpp-agency').value }); $('rpp-splate').value = $('rpp-plate').value; await renderPasses() });
 $('rpp-modes').addEventListener('click', ppGuard(async e => { const b = e.target.closest('[data-mode]'); if (!b) return;
-  const r = await P.simulate($('rpp-splate').value, b.dataset.mode, 'roadside unit');
+  const r = await API().simulate($('rpp-splate').value, b.dataset.mode, 'roadside unit');
   $('rpp-verdict').innerHTML = `<span class="${r.ok ? 'rpm-ok' : 'rpm-bad'}">${r.ok ? 'ACCEPTED' : 'REJECTED'} · ${esc(r.reason)}</span>${r.alert ? ' <span class="rpm-warn">· police alerted</span>' : ''}`; await renderPasses() }));
-$('rpp-incs').addEventListener('click', ppGuard(async e => { const c = e.target.closest('[data-close]'); if (c) { await P.close(c.dataset.close); await renderPasses() } }));
-$('rpp-incs').addEventListener('change', ppGuard(async e => { const s = e.target.closest('select[data-plate]'); if (s) { await P.setStatus(s.dataset.inc, s.dataset.plate, s.value); await renderPasses() } }));
+$('rpp-incs').addEventListener('click', ppGuard(async e => { const c = e.target.closest('[data-close]'); if (c) { await API().close(c.dataset.close); await renderPasses() } }));
+$('rpp-incs').addEventListener('change', ppGuard(async e => { const s = e.target.closest('select[data-plate]'); if (s) { await API().setStatus(s.dataset.inc, s.dataset.plate, s.value); await renderPasses() } }));
+$('rpp-url').value = SRV.url;
+const srvStatus = () => { $('rpp-srvState').textContent = SRV.token ? `Connected to ${SRV.url} as ${SRV.user} (${SRV.role})` : 'Browser mode: passes live in this tab only'; $('rpp-disconnect').disabled = !SRV.token; $('rpp-connect').disabled = !!SRV.token };
+$('rpp-connect').onclick = ppGuard(async () => {
+  const url = $('rpp-url').value.trim().replace(/\/+$/, ''); if (!/^https?:\/\//.test(url)) throw new PassError('Enter the server address, starting with https://');
+  SRV.url = url; SRV.token = '';
+  try { const r = await srvCall('/api/login', { username: $('rpp-user').value.trim(), password: $('rpp-pass').value }); SRV.token = r.token; SRV.role = r.role; SRV.user = r.username }
+  catch (e) { throw e instanceof PassError ? e : new PassError('Cannot reach the server (' + e.message + '). Check the address, https, and CORS_ORIGIN on the server.') }
+  store.set('rp.api', url); $('rpp-pass').value = ''; srvStatus(); await renderPasses();
+});
+$('rpp-disconnect').onclick = ppGuard(async () => { SRV.token = ''; SRV.role = ''; SRV.user = ''; srvStatus(); await renderPasses() });
 window.RPPasses = { activate() { if (!(window.crypto && crypto.subtle)) { $('rpp-verdict').textContent = 'This browser has no WebCrypto. Open the page over https in a current browser.'; return } renderPasses().catch(e => { $('rpp-verdict').textContent = e.message }) } };
 
 /* =====================================================================
@@ -1419,8 +1451,8 @@ async function startRun() {
   if (!M.route || !window.crypto || !crypto.subtle) return; const beh = $('rpm-beh').value, sec = +$('rpm-sec').value, r = M.route, rb = routeBumps(r.coords); if (!rb.list || !rb.list.length) return;
   stopRun(); $('rpm-run').disabled = true; $('rpm-stop').disabled = false; $('rpm-plan').disabled = true;
   const fromN = $('rpm-from').selectedOptions[0].text, toN = $('rpm-to').selectedOptions[0].text, plate = 'H ' + (1000 + Math.floor(Math.random() * 9000));
-  const inc = await P.createIncident({ type: 'medical', location: `${fromN} → ${toN}` }); await P.issuePass(inc.id, { plate, agency: 'Ambulance Corp' });
-  if (beh === 'returning') await P.setStatus(inc.id, plate, 'returning');
+  const inc = await API().createIncident({ type: 'medical', location: `${fromN} → ${toN}` }); await API().issuePass(inc.id, { plate, agency: 'Ambulance Corp' });
+  if (beh === 'returning') await API().setStatus(inc.id, plate, 'returning');
   const run = { stop: false, bumps: rb.list, cum: rb.cum, total: rb.cum[rb.cum.length - 1], t0: performance.now(), dur: 18000, lowered: 0, refused: 0, passed: 0, plate, incId: inc.id, sent: 0 }; M.run = run;
   const el = document.createElement('div'); el.className = 'rpm-veh'; vehMarker = new maplibregl.Marker({ element: el }).setLngLat(r.coords[0]).addTo(map);
   map.easeTo({ center: r.coords[0], zoom: 15.2, pitch: 62, duration: 900 });
@@ -1429,7 +1461,7 @@ async function startRun() {
   paint(); upd('Driving the route. At each speed bump within 120 m the vehicle sends a signed message and the edge verifies it.');
   const ask = async (b, i) => {
     let mode = 'valid'; if (beh === 'clone') mode = 'forged'; else if (beh === 'replay') mode = run.sent === 0 ? 'valid' : 'replay'; run.sent++;
-    try { const res = await P.simulate(plate, mode, 'Bump ' + (i + 1)); b.s = res.ok ? 'lowered' : 'refused'; res.ok ? run.lowered++ : run.refused++; b.why = res.reason } catch (e) { b.s = 'refused'; run.refused++; b.why = e.message }
+    try { const res = await API().simulate(plate, mode, 'Bump ' + (i + 1)); b.s = res.ok ? 'lowered' : 'refused'; res.ok ? run.lowered++ : run.refused++; b.why = res.reason } catch (e) { b.s = 'refused'; run.refused++; b.why = e.message }
     b.res = true; paint(); upd(b.s === 'lowered' ? `Bump ${i + 1}: pass accepted, unit lowered.` : `Bump ${i + 1}: request refused (${b.why}), unit stays raised.`);
   };
   const tick = now => {

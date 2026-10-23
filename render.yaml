@@ -1,0 +1,20 @@
+# Render blueprint. A persistent disk needs a paid instance; without one, state is lost on every deploy.
+services:
+  - type: web
+    name: rapidpass
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: rapidpass-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: ADMIN_PASSWORD
+        sync: false          # set once in the dashboard; at least 10 characters
+      - key: CORS_ORIGIN
+        value: https://thirumald.github.io
+      - key: TOMTOM_KEY
+        sync: false          # optional: lets the server proxy TomTom without exposing the key
+      - key: ENABLE_SIMULATE
+        value: "0"           # turn the demo vehicle simulator off in production

@@ -1,5 +1,5 @@
 import { createPrivateKey } from 'node:crypto';
-import { newKeyPair, signObj, verifyObj, pubFromB64 } from './crypto.js';
+import { newKeyPair, signObj, verifyObj, pubFromB64, privToB64, keyPairFromPrivB64 } from './crypto.js';
 import { AuditLog } from './audit.js';
 
 const PRIORITY = new Set(['enroute', 'patient']);
@@ -24,16 +24,16 @@ export class RapidPass {
 
   get authorityPublicKey() { return this.authority.publicB64; }
 
-  createIncident({ type = 'medical', location = '' } = {}) {
+  createIncident({ type = 'medical', location = '' } = {}, actor) {
     const id = 'INC-' + String(++this.seq + 2400);
     const inc = { id, type, location, active: true, openedAt: new Date(this.now()).toISOString(), vehicles: new Map() };
     this.incidents.set(id, inc);
-    this.audit.append('INCIDENT_OPENED', { id, type, location });
+    this.audit.append('INCIDENT_OPENED', { id, type, location, actor });
     return this.view(inc);
   }
 
   /** Issue a pass to a vehicle. The device key stays with the vehicle; the server keeps it only for demo simulation. */
-  issuePass(incidentId, { plate, agency = 'unknown', cls = 'ambulance', ttlMs = DEFAULT_TTL_MS }) {
+  issuePass(incidentId, { plate, agency = 'unknown', cls = 'ambulance', ttlMs = DEFAULT_TTL_MS }, actor) {
     const inc = this.#active(incidentId);
     if (!plate) throw new RapidPassError('plate is required', 400);
     if (inc.vehicles.has(plate)) throw new RapidPassError('vehicle already has a pass on this incident', 409);
@@ -41,31 +41,75 @@ export class RapidPass {
     const t = this.now();
     const cred = { v: 1, kid: `${incidentId}:${plate}`, plate, agency, cls, incident: incidentId, devicePub: device.publicB64, nbf: t, exp: t + ttlMs };
     const credential = { ...cred, sig: signObj(cred, this.authority.privateKey) };
-    inc.vehicles.set(plate, { plate, agency, cls, status: 'enroute', credential, device, lastCtr: 0 });
-    this.audit.append('PASS_ISSUED', { incident: incidentId, plate, agency, cls, kid: cred.kid, exp: cred.exp });
+    inc.vehicles.set(plate, { plate, agency, cls, status: 'enroute', credential, device, lastCtr: 0, sim: { ctr: 0, last: null } });
+    this.audit.append('PASS_ISSUED', { incident: incidentId, plate, agency, cls, kid: cred.kid, exp: cred.exp, actor });
     return { credential, devicePrivateKey: device.privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64') };
   }
 
-  setStatus(incidentId, plate, status) {
+  setStatus(incidentId, plate, status, actor) {
     if (!STATUSES.has(status)) throw new RapidPassError('status must be one of ' + [...STATUSES].join(', '), 400);
     const v = this.#vehicle(this.#active(incidentId), plate);
     v.status = status;
-    this.audit.append('STATUS_CHANGED', { incident: incidentId, plate, status });
+    this.audit.append('STATUS_CHANGED', { incident: incidentId, plate, status, actor });
     return this.view(this.incidents.get(incidentId));
   }
 
   /** Closing an incident revokes every pass issued on it. */
-  closeIncident(incidentId) {
+  closeIncident(incidentId, actor) {
     const inc = this.#active(incidentId);
     inc.active = false;
     for (const v of inc.vehicles.values()) this.revoked.add(v.credential.kid);
-    this.audit.append('INCIDENT_CLOSED', { id: incidentId, revoked: inc.vehicles.size });
+    this.audit.append('INCIDENT_CLOSED', { id: incidentId, revoked: inc.vehicles.size, actor });
     return this.view(inc);
   }
 
-  revoke(kid) {
+  revoke(kid, actor) {
     this.revoked.add(kid);
-    this.audit.append('PASS_REVOKED', { kid });
+    this.audit.append('PASS_REVOKED', { kid, actor });
+  }
+
+  /** Demo only: act as a vehicle that holds a pass. mode is valid, replay, forged or wrongkey. */
+  simulate(plate, mode, site = 'unit', actor) {
+    let v = null;
+    for (const inc of this.incidents.values()) { const x = inc.vehicles.get(plate); if (x) v = x; } // latest incident wins
+    if (!v) throw new RapidPassError('unknown plate; issue a pass first', 404);
+    const s = v.sim || (v.sim = { ctr: v.lastCtr, last: null });
+    s.ctr = Math.max(s.ctr, v.lastCtr); // stay ahead of anything the verifier has already accepted
+    let msg;
+    if (mode === 'valid') { msg = RapidPass.buildMessage(v.credential, privToB64(v.device.privateKey), ++s.ctr, this.now()); s.last = msg; }
+    else if (mode === 'replay') { if (!s.last) throw new RapidPassError('send a valid message first, then replay it', 409); msg = s.last; }
+    else if (mode === 'forged') msg = RapidPass.buildMessage({ ...v.credential, cls: 'fire' }, privToB64(v.device.privateKey), ++s.ctr, this.now());
+    else if (mode === 'wrongkey') msg = RapidPass.buildMessage(v.credential, privToB64(newKeyPair().privateKey), ++s.ctr, this.now());
+    else throw new RapidPassError('mode must be valid, replay, forged or wrongkey', 400);
+    return { mode, ...this.verify(msg, site) };
+  }
+
+  /** Everything needed to restart with the same signing key, passes and audit chain. */
+  export() {
+    return {
+      v: 1, seq: this.seq, revoked: [...this.revoked],
+      authority: { priv: privToB64(this.authority.privateKey) },
+      incidents: [...this.incidents.values()].map(i => ({
+        id: i.id, type: i.type, location: i.location, active: i.active, openedAt: i.openedAt,
+        vehicles: [...i.vehicles.values()].map(v => ({ plate: v.plate, agency: v.agency, cls: v.cls, status: v.status, credential: v.credential, devicePriv: privToB64(v.device.privateKey), lastCtr: v.lastCtr })),
+      })),
+      audit: this.audit.entries,
+    };
+  }
+
+  /** Rebuild from export(). Refuses to load if the audit chain was edited. */
+  static import(data, opts) {
+    const rp = new RapidPass(opts);
+    rp.authority = keyPairFromPrivB64(data.authority.priv);
+    rp.seq = data.seq; rp.revoked = new Set(data.revoked);
+    rp.audit = new AuditLog(data.audit);
+    const chain = rp.audit.verifyChain();
+    if (!chain.ok) throw new Error('audit chain broken at entry ' + chain.brokenAt + '; refusing to start');
+    for (const i of data.incidents) {
+      const vehicles = new Map(i.vehicles.map(v => [v.plate, { plate: v.plate, agency: v.agency, cls: v.cls, status: v.status, credential: v.credential, device: keyPairFromPrivB64(v.devicePriv), lastCtr: v.lastCtr, sim: { ctr: v.lastCtr, last: null } }]));
+      rp.incidents.set(i.id, { id: i.id, type: i.type, location: i.location, active: i.active, openedAt: i.openedAt, vehicles });
+    }
+    return rp;
   }
 
   /** Message a vehicle device would send: credential plus a counter-stamped signature. */
