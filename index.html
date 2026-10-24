@@ -528,6 +528,24 @@ SC.push(
   events:[{t:.5,run:S=>setLock(S.sites[0],'maint','Maintenance: crew lockout on S1')},{t:15,run:S=>setLock(S.sites[0],null,'Maintenance: lockout released by crew')}],
   spawns:[{t:1,type:'car',lane:1,kmh:50},{t:3,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:9,type:'suv',lane:1,kmh:50},{t:20,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A07'},{t:25,type:'car',lane:0,kmh:50}]}
 );
+SC.push(
+ {id:'dronefirst',name:'Drone first look at an incident (D1)',dur:26,len:220,sites:[140],drone:{dock:60,name:'D1'},inc:{id:'INC-26-10510',type:'Road traffic collision',prio:'P1 · drone dispatched'},
+  events:[{t:1,run:S=>{log('Dispatch: collision on the eastbound lane at 48 m. Ground crew needs about 9 s from dispatch','warn');droneLaunch({kind:'scene',x:48,label:'the collision scene',groundEta:9})}},{t:19,run:S=>{S.veh=S.veh.filter(v=>!v.broken);log('Collision cleared by recovery','em')}}],
+  spawns:[{t:0,type:'car',lane:0,kmh:0,x:50,v0:0,broken:true,label:'Car in the collision'},{t:0,type:'suv',lane:0,kmh:0,x:42,v0:0,broken:true,label:'SUV in the collision'},{t:2,type:'car',lane:1,kmh:50},{t:8,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:12,type:'suv',lane:1,kmh:50}]},
+ {id:'dronescout',name:'Drone escort confirms the zone (D2)',dur:30,len:220,sites:[140],drone:{dock:100,name:'D1'},inc:{id:'INC-26-10511',type:'Cardiac arrest',prio:'P1 · drone scouting the unit'},
+  events:[{t:.5,run:S=>droneLaunch({kind:'station',site:0,x:140,label:'S1',until:()=>S.emSeen&&!S.veh.some(v=>v.em)})},{t:15,run:S=>{S.veh=S.veh.filter(v=>!v.broken);log('Tow truck cleared the vehicle — unit released','em')}}],
+  spawns:[{t:0,type:'suv',lane:0,kmh:0,x:138,v0:0,broken:true,label:'Broken-down SUV'},{t:2,type:'car',lane:1,kmh:50},{t:7,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:11,type:'car',lane:1,kmh:50}]},
+ {id:'droneweather',name:'Drone grounded by wind (D3)',dur:32,len:220,sites:[140],drone:{dock:100,name:'D1'},inc:{id:'INC-26-10512',type:'Stroke',prio:'P1'},
+  events:[{t:.5,run:S=>droneLaunch({kind:'station',site:0,x:140,label:'S1',until:()=>S.emSeen&&!S.veh.some(v=>v.em)})},
+   {t:9,run:S=>{S.wx.wind=48;log('Weather: wind gusts rising to 48 km/h','warn')}},
+   {t:17,run:S=>droneLaunch({kind:'station',site:0,x:140,label:'S1 (second ambulance)',until:()=>S.t>29})}],
+  spawns:[{t:1,type:'car',lane:1,kmh:50},{t:7,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:10,type:'suv',lane:1,kmh:50},{t:19,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A07'}]},
+ {id:'dronepower',name:'Dock loses mains power (D6)',dur:32,len:220,sites:[140],drone:{dock:100,name:'D1',battery:32},inc:{id:'INC-26-10513',type:'Fall from height',prio:'P1'},
+  events:[{t:.5,run:S=>{S.drone.mains=false;log('Dock D1 lost mains power — running on its backup battery. The aircraft will not recharge, and the dock cannot cool or heat it','warn',true)}},
+   {t:1,run:S=>droneLaunch({kind:'station',site:0,x:140,label:'S1',until:()=>S.t>12})},
+   {t:17,run:S=>droneLaunch({kind:'station',site:0,x:140,label:'S1 (second ambulance)',until:()=>S.t>29})}],
+  spawns:[{t:1,type:'car',lane:1,kmh:50},{t:7,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A12'},{t:10,type:'suv',lane:1,kmh:50},{t:19,type:'amb',lane:0,kmh:80,...EMV,label:'Ambulance A07'}]}
+);
 SC.forEach(s=>s.spawns.sort((a,b)=>a.t-b.t));
 
 /* ================= engine ================= */
@@ -537,7 +555,7 @@ const alarmLog=[];let alarmSeq=0;
 function log(msg,kind='',alarm=false){S.log.unshift({t:S.t,msg,kind});if(S.log.length>80)S.log.pop();logDirty=true;
   if(alarm||kind==='bad'||(kind==='warn'&&/rejected|captured|held|jammed|lost|stopped/i.test(msg))){alarmLog.unshift({id:++alarmSeq,at:new Date(),msg,kind,acked:false,src:sc.name});alarmsDirty=true}}
 function reset(){
-  S={t:0,veh:[],peds:[],pdI:0,disagree:false,water:.05,flooding:false,env:{sand:.03,temp:41,night:sc.env==='night'},spI:0,evI:0,power:'grid',link:true,light:sc.signal?'red':null,preT:0,log:[],act:0,rej:0,civ:[],em:null,emLabel:'',flatCiv:0,nid:1,hist:[],histT:0,flashes:[],emSeen:false,emDone:false,
+  S={t:0,veh:[],peds:[],pdI:0,wx:{wind:15,temp:41,rain:0},droneSeen:{},droneCleared:{},droneRefused:0,droneOnSceneAt:null,ambAtScene:false,drone:sc.drone?{name:sc.drone.name,dockX:sc.drone.dock,x:sc.drone.dock,state:'docked',lid:0,alt:0,lat:0,battery:sc.drone.battery??100,mains:sc.drone.mains!==false,mission:null,t0:0}:null,disagree:false,water:.05,flooding:false,env:{sand:.03,temp:41,night:sc.env==='night'},spI:0,evI:0,power:'grid',link:true,light:sc.signal?'red':null,preT:0,log:[],act:0,rej:0,civ:[],em:null,emLabel:'',flatCiv:0,nid:1,hist:[],histT:0,flashes:[],emSeen:false,emDone:false,
     sites:sc.sites.map((x,i)=>({x,name:'S'+(i+1),lock:null,lockLabel:'',flooded:false,segs:[0,1].map(l=>({lane:l,h:1,state:'RAISED',mode:null,clearT:0,sig:{},cycles:0,missed:0,warned:0,still:0,blockLogged:false,dnfUntil:0}))}))};
   endHold=0;logDirty=true;
   log('Scenario start — all units raised, power on grid, platform link up');
@@ -606,7 +624,7 @@ function control(site,seg,dt){
         const eta=credA?Math.max((-credA.v+Math.sqrt(credA.v*credA.v+2*credA.acc*credAD))/credA.acc,credAD/Math.max(credA.cruise,1)):99;
         if(seg.h>=1&&!credA){st='RAISED';seg.mode=null}
         else if(onTop||reachCiv){st=seg.h<1?'FROZEN':'WAIT';
-          if(credA&&seg.warned!==credA.id){seg.warned=credA.id;log(`${n}: in-cab warning (V2X) to ${credA.label} — unit blocked ahead, slow down`,'warn')}}
+          if(credA&&seg.warned!==credA.id){seg.warned=credA.id;log(`${n}: in-cab warning (V2X) to ${credA.label} — unit blocked ahead, slow down${droneLead(n)}`,'warn')}}
         else if(seg.h===1&&credA.v>8&&eta<lowerT+.7){seg.missed=credA.id;st='RAISED';
           log(`${n}: ${credA.label} arrives in ${eta.toFixed(1)} s, lowering takes ${lowerT.toFixed(1)} s — window missed, unit kept raised, in-cab warning sent`,'warn',true)}
         else{seg.h=Math.max(0,seg.h-dt/lowerT);st='LOWERING'}}}
@@ -677,9 +695,83 @@ function step(dt){
   for(const site of S.sites)for(const seg of site.segs)control(site,seg,dt);
   signalCtl(dt);
   for(const v of S.veh)drive(v,dt);
+  droneStep(dt);
   S.veh=S.veh.filter(v=>v.x>-30&&v.x<sc.len+30);
   if(S.emSeen&&!S.emDone&&!S.veh.some(v=>v.em))S.emDone=true;
   S.histT+=dt;if(S.histT>=0.1){S.histT=0;S.hist.push({t:S.t,h:chartSeries().map(r=>r.seg.h)});while(S.hist.length&&S.hist[0].t<S.t-30)S.hist.shift()}
+}
+/* ================= drone dock on a signal pole (limits from DJI's published Dock 2 / Matrice 3D figures) ================= */
+const DRN={v:15,wind:29,temp:45,rain:2,minBattery:30,sortieCost:4};
+const droneText={docked:'in dock',opening:'lid opening',climb:'climbing',cruise:'en route',station:'on station',return:'returning',descend:'landing',closing:'docking'};
+function droneWxReason(){const w=S.wx;return w.wind>DRN.wind?`wind gusts of ${w.wind} km/h exceed the ${DRN.wind} km/h limit`:w.temp>DRN.temp?`air temperature of ${w.temp} °C exceeds the ${DRN.temp} °C limit`:w.rain>DRN.rain?`rain of ${w.rain} mm/h exceeds the ${DRN.rain} mm/h limit`:''}
+function droneLead(n){return S.droneSeen[n]!=null?` (the drone had flagged it ${Math.max(0,Math.round(S.t-S.droneSeen[n]))} s earlier)`:''}
+function droneLaunch(m){
+  const d=S.drone;if(!d)return;
+  if(d.state!=='docked'){log('Drone launch ignored: the drone is already out','warn');return}
+  const wx=droneWxReason();
+  const why=wx?'grounded: '+wx:d.battery<DRN.minBattery?`battery ${Math.round(d.battery)}% is below the ${DRN.minBattery}% minimum${d.mains?'':' and the dock has no mains power to recharge it'}`:'';
+  if(why){S.droneRefused++;log(`Drone launch refused for ${m.label}: ${why} — crews continue on ground sensors only`,'bad',true);return}
+  d.mission=m;d.state='opening';log(`Drone launching from dock ${d.name} for ${m.label}`,'em');
+}
+function droneArrived(){
+  const d=S.drone,m=d.mission;d.t0=S.t;
+  if(m.kind==='scene'){
+    const stopped=S.veh.filter(v=>v.v<.5&&!v.em&&Math.abs(v.x-m.x)<16),peds=S.peds.filter(p=>p.on&&Math.abs(p.x-m.x)<12).length;S.droneOnSceneAt=S.t;
+    log(`Drone on scene at T+${S.t.toFixed(1)} s: ${stopped.length} vehicle${stopped.length===1?'':'s'} stopped in the eastbound lane${peds?`, ${peds} pedestrians on the road`:''}, no pedestrians in the other lane. A ground crew is about ${m.groundEta} s away.`,'em');
+    m.until=()=>S.t-d.t0>(m.hold||14);
+  }else log(`Drone on station over ${m.label}: its aerial view feeds the zone-clear check`,'em');
+}
+function droneWatch(){
+  const d=S.drone,m=d.mission;
+  if(m.kind==='scene'){const amb=S.veh.find(v=>v.em&&v.v<1&&Math.abs(v.x-m.x)<30);
+    if(amb&&!S.ambAtScene){S.ambAtScene=true;log(`${amb.label} reached the scene at T+${S.t.toFixed(1)} s; the drone had it in view ${(S.t-S.droneOnSceneAt).toFixed(1)} s earlier`,'em')}return}
+  const site=S.sites[m.site];if(!site)return;
+  for(const seg of site.segs){const n=segName(site,seg);
+    const stopped=S.veh.find(v=>v.lane===seg.lane&&v.v<.5&&!v.em&&distTo(v,site.x)<=6&&distTo(v,site.x)>=-(v.len+8));
+    const ped=S.peds.some(p=>p.on&&Math.abs(p.x-site.x)<6),blocked=stopped||ped;
+    if(blocked&&S.droneSeen[n]==null){S.droneSeen[n]=S.t;log(`Drone: ${stopped?`stationary ${stopped.label} on ${n}`:`pedestrians on ${n}`} (aerial view) — operations alerted, approaching crews warned`,'warn',true)}
+    else if(!blocked&&S.droneSeen[n]!=null&&!S.droneCleared[n]){S.droneCleared[n]=true;log(`Drone: ${n} zone clear (aerial view)`,'em')}}
+}
+function droneStep(dt){
+  const d=S.drone;if(!d)return;
+  if(d.state==='docked'&&d.mains&&d.battery<100)d.battery=Math.min(100,d.battery+2.2*dt); // 20 to 90% in about 32 min, shown 60x faster
+  if(d.mission&&['climb','cruise','station'].includes(d.state)){const w=droneWxReason();if(w){log(`Drone returning to dock: ${w}`,'bad',true);d.state='return';d.mission=null}}
+  const step=DRN.v*dt;
+  if(d.state==='opening'){d.lid=Math.min(1,d.lid+dt/.8);if(d.lid>=1)d.state='climb'}
+  else if(d.state==='climb'){d.alt=Math.min(1,d.alt+dt/1.2);if(d.alt>=1)d.state='cruise'}
+  else if(d.state==='cruise'){const dx=d.mission.x-d.x;d.lat=Math.min(1,d.lat+dt/1.5);if(Math.abs(dx)<=step){d.x=d.mission.x;d.state='station';droneArrived()}else d.x+=Math.sign(dx)*step}
+  else if(d.state==='station'){droneWatch();if(d.mission&&d.mission.until&&d.mission.until()){log(`Drone mission complete (${d.mission.label}) — returning to dock`);d.state='return';d.mission=null}}
+  else if(d.state==='return'){const dx=d.dockX-d.x;d.lat=Math.max(0,d.lat-dt/1.5);if(Math.abs(dx)<=step){d.x=d.dockX;d.state='descend'}else d.x+=Math.sign(dx)*step}
+  else if(d.state==='descend'){d.alt=Math.max(0,d.alt-dt/1.2);if(d.alt<=0)d.state='closing'}
+  else if(d.state==='closing'){d.lid=Math.max(0,d.lid-dt/.8);if(d.lid<=0){d.state='docked';d.battery=Math.max(0,d.battery-DRN.sortieCost);log(`Drone back in dock ${d.name}, battery ${Math.round(d.battery)}%${d.mains?', recharging':', no mains power so it will not recharge'}`)}}
+}
+function droneChips(){
+  const d=S.drone;if(!d)return[];const w=droneWxReason(),out=[];
+  out.push([w?'Drone grounded':`Drone ${droneText[d.state]}`,true,w?'bad':d.state==='docked'?'on':'warn']);
+  out.push([`Wind ${S.wx.wind} km/h · ${S.wx.temp} °C`,true,w?'bad':'on']);
+  out.push([`Dock power ${d.mains?'mains':'backup'} · battery ${Math.round(d.battery)}%`,true,!d.mains||d.battery<DRN.minBattery?'warn':'on']);
+  return out;
+}
+function drawDroneScene(){
+  const d=S.drone;if(!d)return;
+  const {roadT,laneH,X,fs,walkT}=G,dockY=(walkT+roadT)/2+2,cx=X(d.dockX),bw=Math.max(18,laneH*.36),bh=bw*.72,w=droneWxReason();
+  ctx.fillStyle='rgba(0,0,0,.35)';rr(ctx,cx-bw/2+2,dockY-bh/2+3,bw,bh,3);ctx.fill();
+  ctx.fillStyle='#d8dde0';rr(ctx,cx-bw/2,dockY-bh/2,bw,bh,3);ctx.fill();ctx.strokeStyle='#6b757b';ctx.lineWidth=1;ctx.stroke();
+  if(d.lid>.15){ctx.fillStyle='#161d21';ctx.fillRect(cx-bw*.3,dockY-bh*.34,bw*.6,bh*.68)}
+  ctx.fillStyle='#9aa3a8';const lw=bw*.46*(1-d.lid*.9);ctx.fillRect(cx-bw/2+2,dockY-bh/2+3,lw,bh-6);ctx.fillRect(cx+bw/2-2-lw,dockY-bh/2+3,lw,bh-6);
+  const led=!d.mains?'#f2b632':w||d.battery<DRN.minBattery?'#ff5d52':d.state==='docked'?'#38c6b2':'#5b8cff';
+  ctx.fillStyle=led;ctx.beginPath();ctx.arc(cx+bw/2-4,dockY-bh/2+4,2.3,0,7);ctx.fill();ctx.fillStyle='#e8601c';ctx.beginPath();ctx.arc(cx-bw/2+4,dockY-bh/2+4,2,0,7);ctx.fill();
+  pill(`Dock ${d.name} · ${Math.round(d.battery)}%${d.mains?'':' · backup power'} · wind ${S.wx.wind} km/h`,cx,dockY-bh/2-fs*1.7,w||!d.mains?'#ffb36b':'#7fe3d4',fs*.78);
+  if(d.state==='docked')return;
+  const x=X(d.x),yRoad=roadT+laneH,y=dockY+(yRoad-dockY)*d.lat,r=Math.max(5,laneH*.1)*(1+.55*d.alt);
+  if(d.state==='station'){ctx.fillStyle='rgba(127,227,212,.1)';ctx.strokeStyle='rgba(127,227,212,.7)';ctx.setLineDash([5,4]);ctx.lineWidth=1.2;ctx.beginPath();ctx.ellipse(x,yRoad,G.sx*14,laneH*.95,0,0,7);ctx.fill();ctx.stroke();ctx.setLineDash([])}
+  ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(x+d.alt*laneH*.15,y+d.alt*laneH*.2,r*1.2,r*.8,0,0,7);ctx.fill();
+  ctx.strokeStyle='#cfd6da';ctx.lineWidth=Math.max(1.5,r*.28);const arms=[[-1,-1],[1,-1],[1,1],[-1,1]];
+  ctx.beginPath();arms.forEach(([ax,ay])=>{ctx.moveTo(x,y);ctx.lineTo(x+ax*r*1.3,y+ay*r*1.3)});ctx.stroke();
+  arms.forEach(([ax,ay],i)=>{const rx=x+ax*r*1.3,ry=y+ay*r*1.3;ctx.fillStyle='rgba(230,237,240,.22)';ctx.beginPath();ctx.arc(rx,ry,r*.75,0,7);ctx.fill();
+    ctx.strokeStyle='rgba(240,245,247,.85)';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(rx,ry,r*.75,S.t*40+i*1.5,S.t*40+i*1.5+1.7);ctx.stroke()});
+  ctx.fillStyle='#eef2f4';rr(ctx,x-r*.7,y-r*.55,r*1.4,r*1.1,3);ctx.fill();ctx.fillStyle='#7fe3d4';ctx.beginPath();ctx.arc(x+r*.3,y,r*.22,0,7);ctx.fill();
+  pill(`Drone · ${droneText[d.state]}`,x,y-r*2.4-fs*1.2,'#7fe3d4',fs*.78);
 }
 function chartSeries(){
   if(S.sites.length>1)return S.sites.map(site=>({seg:site.segs[0],name:segName(site,site.segs[0])}));
@@ -847,6 +939,7 @@ function draw(){
   }
   // vehicles
   for(const v of S.veh)drawVehicle(v);
+  drawDroneScene();
   for(const p of S.peds){if(p.p<=0)continue;const px=X(p.x),py=roadT+Math.min(1.1,p.p)*(roadB-roadT),r=Math.max(5,laneH*.12),sw=Math.sin(S.t*7+p.ph)*r*.5;
     ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(px+2,py+3,r*1.1,r*.8,0,0,7);ctx.fill();ctx.fillStyle='#d9b08c';ctx.beginPath();ctx.arc(px+sw*.3,py-r*.9,r*.4,0,7);ctx.fill();
     ctx.fillStyle=['#e5533b','#3b8be5','#e5c33b','#58b86f'][Math.floor(p.ph)%4];ctx.beginPath();ctx.ellipse(px,py,r*.95,r*.55,0,0,7);ctx.fill();
@@ -967,7 +1060,7 @@ function panels(){
   const s=focus.seg.sig,pw=S.power;
   $('chips').innerHTML=[['Dispatch geofence',s.disp,'on'],['V2X credential',s.v2x,'on'],['Acoustic siren',s.acoustic,(s.disp||s.v2x)?'on':'warn'],['Zone clear',s.clear,'on'],
     [`Confirmations ${s.conf||0}/3`,(s.conf||0)>=cfg.need&&(s.disp||s.v2x),'on'],['Platform link '+(S.link?'up':'lost'),true,S.link?'on':'warn'],
-    ['Power '+(pw==='grid'?'grid':pw==='battery'?'battery':'fault'),true,pw==='grid'?'on':pw==='battery'?'warn':'bad'],['Tailgate camera '+(cfg.enforce?'on':'off'),cfg.enforce,'on']]
+    ['Power '+(pw==='grid'?'grid':pw==='battery'?'battery':'fault'),true,pw==='grid'?'on':pw==='battery'?'warn':'bad'],['Tailgate camera '+(cfg.enforce?'on':'off'),cfg.enforce,'on'],...droneChips()]
     .map(([l,on,c])=>`<div class="chip ${on?c:''}"><b></b>${l}</div>`).join('');
   $('ruleHint').textContent=`Rule: dispatch or V2X credential plus ${cfg.need===2?'one more signal (two of three)':'both other signals (three of three)'}. Raise after ${cfg.clearT} s clear within ${cfg.buffer} m.`;
   $('segs').innerHTML=S.sites.flatMap(site=>site.segs.map(seg=>`<tr><td class="mono">${segName(site,seg)}</td><td>${statePill(seg)}</td><td><span class="mbar"><i style="width:${Math.round(seg.h*100)}%"></i></span><span class="mono">${Math.round(seg.h*75)} mm</span></td></tr>`)).join('');
@@ -1306,12 +1399,12 @@ const UC = [
  ['O3', 'Road works or resurfacing', 'Damage to the unit', 'Maintenance mode with lockout', [54.4, 24.5], 'Real roadworks from TomTom', 'maint'],
  ['O4', 'Insurance claim or complaint', 'No evidence', 'Event log with video clip for every actuation and every flush crossing', [54.371, 24.4745], 'Operations centre records', null],
  // drone docks on traffic-signal poles; the last field is an action that demonstrates the case on this map
- ['D1', 'Drone first look at an incident', 'Crews and operators are blind to the scene for minutes', 'The nearest dock launches a drone; its arrival is compared with the ground crew\'s routed time', [54.40, 24.50], 'Worst jam or closure now', null, 'drone-send'],
- ['D2', 'Drone escort confirms the zone is clear', 'A unit lowers into an obstacle the sensors cannot see', 'The drone flies ahead and gives an independent look at each speed-bump zone before the pass engine lowers it', [54.373, 24.481], 'Civil Defence Al Zaab to Cleveland Clinic corridor', null, 'drone-escort'],
- ['D3', 'Dock grounded by wind, sand or heat', 'A drone is lost or damaged, or a dock overheats', 'Weather limits keep the drone in its dock, the refusal is logged, and a ground crew is used instead', [54.495, 24.37], 'Mussafah industrial area', null, 'drone-weather'],
+ ['D1', 'Drone first look at an incident', 'Crews and operators are blind to the scene for minutes', 'The nearest dock launches a drone; its arrival is compared with the ground crew\'s routed time', [54.40, 24.50], 'Worst jam or closure now', 'dronefirst', 'drone-send'],
+ ['D2', 'Drone escort confirms the zone is clear', 'A unit lowers into an obstacle the sensors cannot see', 'The drone flies ahead and gives an independent look at each speed-bump zone before the pass engine lowers it', [54.373, 24.481], 'Civil Defence Al Zaab to Cleveland Clinic corridor', 'dronescout', 'drone-escort'],
+ ['D3', 'Dock grounded by wind, sand or heat', 'A drone is lost or damaged, or a dock overheats', 'Weather limits keep the drone in its dock, the refusal is logged, and a ground crew is used instead', [54.495, 24.37], 'Mussafah industrial area', 'droneweather', 'drone-weather'],
  ['D4', 'Flight for a purpose that is not permitted', 'Surveillance creep: drones used for things nobody agreed to', 'Only incident response, congestion monitoring and emergency escort can launch; every refusal is public', [54.3745, 24.4765], 'Operations centre', null, 'drone-purpose'],
  ['D5', 'Flight toward an airport or restricted airspace', 'Conflict with aircraft; a legal and safety breach', 'Launch is refused if the route enters a no-fly buffer', [54.605, 24.443], 'Edge of the airport buffer', null, 'drone-nofly'],
- ['D6', 'Dock loses mains power', 'On backup power the aircraft stops recharging, and cabin cooling and cover heating stop', 'The dock runs on its backup battery for a few hours, operations are alerted, the drone flies only while its battery lasts, and the nearest other dock takes over or the area is flagged as having no aerial cover', [54.575, 24.42], 'Khalifa City', null, 'drone-power'],
+ ['D6', 'Dock loses mains power', 'On backup power the aircraft stops recharging, and cabin cooling and cover heating stop', 'The dock runs on its backup battery for a few hours, operations are alerted, the drone flies only while its battery lasts, and the nearest other dock takes over or the area is flagged as having no aerial cover', [54.575, 24.42], 'Khalifa City', 'dronepower', 'drone-power'],
  ['D7', 'Public notice on every pole', 'People do not know who is watching, what is collected, or how it is used', 'Each pole carries a notice with purpose, blurring, retention and a contact, backed by the public flight register', [54.388, 24.4955], 'Hospital approach, Al Maryah', null, 'drone-signs'],
 ];
 
@@ -1415,7 +1508,7 @@ function ucEvidence(code) {
 const ACT_LABEL = { 'drone-send': 'Send a drone to the worst jam', 'drone-escort': 'Run a corridor with drone escort', 'drone-weather': 'Try a flight in a storm', 'drone-purpose': 'Try a flight that is not permitted', 'drone-nofly': 'Try a flight into the airport zone', 'drone-power': 'Cut power to the nearest dock', 'drone-signs': 'Download notices for every pole' };
 function popupHTML(u) {
   const [code, title, risk, fix, at, where, scn, act] = u, ev = ucEvidence(code);
-  return `<div class="rpm-pop"><b style="color:${GROUPS[code[0]][1]}">${code}</b> · <b>${esc(title)}</b><p><span class="rpm-note">Site (illustrative):</span> ${esc(where)}</p><p><span class="rpm-note">Risk:</span> ${esc(risk)}</p><p><span class="rpm-note">Solution:</span> ${esc(fix)}</p>${ev ? `<p class="rpm-ok">${esc(ev)}</p>` : ''}<p class="rpm-note">${esc(nearInfo(at))}</p>${scn ? `<button class="btn primary rpm-btn" data-run="${scn}" type="button">Run scenario in Live</button>` : act ? `<button class="btn primary rpm-btn" data-act="${act}" data-lon="${at[0]}" data-lat="${at[1]}" type="button">${ACT_LABEL[act]}</button>` : '<span class="rpm-note">No scripted scenario for this case in the Live view yet.</span>'}</div>`;
+  return `<div class="rpm-pop"><b style="color:${GROUPS[code[0]][1]}">${code}</b> · <b>${esc(title)}</b><p><span class="rpm-note">Site (illustrative):</span> ${esc(where)}</p><p><span class="rpm-note">Risk:</span> ${esc(risk)}</p><p><span class="rpm-note">Solution:</span> ${esc(fix)}</p>${ev ? `<p class="rpm-ok">${esc(ev)}</p>` : ''}<p class="rpm-note">${esc(nearInfo(at))}</p>${scn ? `<button class="btn primary rpm-btn" data-run="${scn}" type="button">Run scenario in Live</button> ` : ''}${act ? `<button class="btn ${scn ? '' : 'primary '}rpm-btn" data-act="${act}" data-lon="${at[0]}" data-lat="${at[1]}" type="button">${ACT_LABEL[act]}</button>` : ''}${!scn && !act ? '<span class="rpm-note">No scripted scenario for this case in the Live view yet.</span>' : ''}</div>`;
 }
 function buildUC() {
   ucMarkers.forEach(m => m.remove()); ucMarkers = [];
