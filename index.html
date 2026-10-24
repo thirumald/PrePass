@@ -347,18 +347,22 @@ h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.
             <div id="rpm-covOut" class="rpm-note" style="margin-top:8px"></div></div>
           <div class="card"><h3>Drone docks <span class="rpm-note" id="rpm-drState"></span></h3>
             <div class="rpm-note">Docking stations on traffic-signal poles let drones land, recharge and launch again, linking aerial views to the ground network. Sites are real signal poles from OpenStreetMap, chosen to cover hospitals, civil defence stations and today's jams and closures.</div>
+            <label class="rpm-lbl" for="rpm-drProf">Hardware profile</label>
+            <select class="sel rpm-in" id="rpm-drProf"><option value="dji">DJI Dock 2 + Matrice 3D (published figures)</option><option value="assumed">Generic dock (assumed limits)</option></select>
+            <div id="rpm-drSpec" class="rpm-note" style="margin-top:6px"></div>
             <label class="rpm-lbl" for="rpm-drN">Docks: <b id="rpm-drNv">10</b></label><input type="range" id="rpm-drN" min="3" max="25" step="1" value="10" style="width:100%;accent-color:var(--amber)">
-            <label class="rpm-lbl" for="rpm-drR">Drone range from a dock: <b id="rpm-drRv">2</b> km</label><input type="range" id="rpm-drR" min="1" max="4" step="0.5" value="2" style="width:100%;accent-color:var(--amber)">
+            <label class="rpm-lbl" for="rpm-drR">Drone range from a dock: <b id="rpm-drRv">2</b> km</label><input type="range" id="rpm-drR" min="1" max="10" step="0.5" value="2" style="width:100%;accent-color:var(--amber)">
             <div class="rpm-row"><button class="btn primary" id="rpm-drPlan" type="button">Find dock sites</button></div>
             <div id="rpm-drOut" class="rpm-note" style="margin-top:8px"></div>
             <div class="rpm-tbl-wrap"><table class="tbl" id="rpm-drTbl"></table></div>
             <div id="rpm-drChk" style="margin-top:10px"></div></div>
           <div class="card"><h3>Send a drone <span class="rpm-note" id="rpm-drFlyState"></span></h3>
             <div class="rpm-lbl">Flying conditions <span id="rpm-wxState"></span></div>
-            <div class="rpm-note">Assumed limits, not a manufacturer's: gusts over 36 km/h, air over 50 °C, a sandstorm or heavy rain ground the drone.</div>
+            <div class="rpm-note" id="rpm-wxNote"></div>
             <label class="rpm-lbl" for="rpm-wxWind">Wind gusts: <b id="rpm-wxWindv">15</b> km/h</label><input type="range" id="rpm-wxWind" min="0" max="70" step="1" value="15" style="width:100%;accent-color:var(--amber)">
             <label class="rpm-lbl" for="rpm-wxTemp">Air temperature: <b id="rpm-wxTempv">41</b> °C</label><input type="range" id="rpm-wxTemp" min="10" max="60" step="1" value="41" style="width:100%;accent-color:var(--amber)">
-            <div class="rpm-row" style="align-items:center"><label style="display:flex;gap:6px;font-size:13px"><input type="checkbox" id="rpm-wxDust"> Sandstorm</label><label style="display:flex;gap:6px;font-size:13px"><input type="checkbox" id="rpm-wxRain"> Heavy rain</label><button class="btn" id="rpm-wxLive" type="button">Use live weather</button></div>
+            <label class="rpm-lbl" for="rpm-wxRain">Rain: <b id="rpm-wxRainv">0</b> mm/h</label><input type="range" id="rpm-wxRain" min="0" max="10" step="0.5" value="0" style="width:100%;accent-color:var(--amber)">
+            <div class="rpm-row" style="align-items:center"><label style="display:flex;gap:6px;font-size:13px"><input type="checkbox" id="rpm-wxDust"> Sandstorm</label><button class="btn" id="rpm-wxLive" type="button">Use live weather</button></div>
             <label class="rpm-lbl" for="rpm-drTarget">Where to</label><select class="sel rpm-in" id="rpm-drTarget"></select>
             <label class="rpm-lbl" for="rpm-drPurpose">Purpose (required, and recorded)</label><select class="sel rpm-in" id="rpm-drPurpose"><option value="incident">Incident response</option><option value="congestion">Congestion monitoring</option><option value="escort">Emergency corridor escort</option><option value="other">Other (not permitted)</option></select>
             <label style="display:flex;gap:8px;margin:8px 0 0;font-size:13px"><input type="checkbox" id="rpm-drBlur" checked> Blur faces and number plates on board</label>
@@ -1307,7 +1311,7 @@ const UC = [
  ['D3', 'Dock grounded by wind, sand or heat', 'A drone is lost or damaged, or a dock overheats', 'Weather limits keep the drone in its dock, the refusal is logged, and a ground crew is used instead', [54.495, 24.37], 'Mussafah industrial area', null, 'drone-weather'],
  ['D4', 'Flight for a purpose that is not permitted', 'Surveillance creep: drones used for things nobody agreed to', 'Only incident response, congestion monitoring and emergency escort can launch; every refusal is public', [54.3745, 24.4765], 'Operations centre', null, 'drone-purpose'],
  ['D5', 'Flight toward an airport or restricted airspace', 'Conflict with aircraft; a legal and safety breach', 'Launch is refused if the route enters a no-fly buffer', [54.605, 24.443], 'Edge of the airport buffer', null, 'drone-nofly'],
- ['D6', 'Dock loses power', 'The drone cannot recharge or launch from that pole', 'The dock is marked offline, the nearest other dock takes the job, and the power check shows on the site checklist', [54.575, 24.42], 'Khalifa City', null, 'drone-power'],
+ ['D6', 'Dock loses mains power', 'On backup power the aircraft stops recharging, and cabin cooling and cover heating stop', 'The dock runs on its backup battery for a few hours, operations are alerted, the drone flies only while its battery lasts, and the nearest other dock takes over or the area is flagged as having no aerial cover', [54.575, 24.42], 'Khalifa City', null, 'drone-power'],
  ['D7', 'Public notice on every pole', 'People do not know who is watching, what is collected, or how it is used', 'Each pole carries a notice with purpose, blurring, retention and a contact, backed by the public flight register', [54.388, 24.4955], 'Hospital approach, Al Maryah', null, 'drone-signs'],
 ];
 
@@ -1623,11 +1627,18 @@ $('rpm-cov').onclick = computeCoverage; $('rpm-covShow').onchange = () => { if (
 
 
 /* ---------- drone docks on traffic-signal poles ---------- */
-const DR = { docks: [], flights: [], range: 2000, policy: { retentionH: 24 }, sig: null, sigNote: '', flying: 0 };
+/* Hardware profiles. The DJI figures come from DJI's published Dock 2 and Matrice 3D specifications and FAQ (checked 24 Oct 2026);
+   the generic profile is the earlier assumption. Always confirm against the datasheet for the unit actually bought. */
+const PROFILES = {
+  dji: { name: 'DJI Dock 2 + Matrice 3D', wind: 29, temp: 45, rain: 2, radiusKm: 10, flightMin: 50, chargeMin: 32, readyPct: 90, volts: '100–240 V AC, 50/60 Hz', powerW: 1000, backupH: 5, backup: true, ip: 'IP55 dock',
+    sources: [['DJI Dock 2 specifications', 'https://enterprise.dji.com/dock-2/specs'], ['wind and rain limits (DJI FAQ, quoted by Heliguy)', 'https://www.heliguy.com/blogs/knowledge-base/what-is-the-maximum-wind-speed-and-rainfall-in-which-dji-dock-2-can-continue-to-operate-normally/']] },
+  assumed: { name: 'Generic dock (assumed)', wind: 36, temp: 50, rain: 2, radiusKm: 4, flightMin: 25, chargeMin: 8, readyPct: 100, volts: 'not specified', powerW: 0, backupH: 0, backup: false, ip: 'not specified', sources: null },
+};
+const DR = { docks: [], flights: [], range: 2000, policy: { retentionH: 24 }, sig: null, sigNote: '', flying: 0, profile: PROFILES.dji };
 try { const f = JSON.parse(store.get('rp.flights.v1') || '[]'); if (Array.isArray(f)) DR.flights = f; } catch {}
 const NOFLY = [{ name: 'Abu Dhabi International Airport', lon: 54.6511, lat: 24.4330, r: 5000 }, { name: 'Al Bateen Executive Airport', lon: 54.4583, lat: 24.4283, r: 3000 }];
 const PURPOSES = { incident: 'Incident response', congestion: 'Congestion monitoring', escort: 'Emergency corridor escort', other: 'Other' };
-const DRONE_MS = 15, SIM_X = 12, FLIGHT_S = 1500; // 15 m/s cruise, simulated 12x faster than real, 25 min of flight per charge
+const DRONE_MS = 15, SIM_X = 12, CHARGE_X = 60; let FLIGHT_S = 1500; // 15 m/s cruise (assumed; DJI lists a higher top speed), flights simulated 12x and charging 60x faster than real
 const noflyGeo = () => ({ type: 'FeatureCollection', features: NOFLY.map(z => ({ type: 'Feature', properties: { name: z.name }, geometry: { type: 'Polygon', coordinates: circle(z.lon, z.lat, z.r, 48) } })) });
 const drGeo = {
   range: () => ({ type: 'FeatureCollection', features: DR.docks.map(d => ({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: circle(d.lon, d.lat, DR.range, 48) } })) }),
@@ -1683,8 +1694,8 @@ async function planDocks() {
 }
 function renderDocks() {
   if (map) { setData('docks', drGeo.docks()); setData('dockrange', drGeo.range()); setData('dtowers', drGeo.towers()); }
-  $('rpm-drTbl').innerHTML = DR.docks.length ? '<tr><th>Dock</th><th>Covers</th><th>Ready</th><th>Drone</th><th>Battery</th></tr>' + DR.docks.map(d => { const st = d.offline ? 'offline' : (d.state === 'ready' && typeof wxReason === 'function' && wxReason() ? 'grounded' : d.state), rd = readiness(d);
-    return `<tr class="rpm-tr${d.id === chkDock ? ' sel' : ''}" data-id="${d.id}" data-lon="${d.lon}" data-lat="${d.lat}"><td>${d.id}</td><td>${d.covers}</td><td>${rd}%</td><td class="${st === 'offline' || st === 'grounded' ? 'rpm-bad' : ''}">${st}</td><td>${Math.round(d.charge)}%<div class="rpm-bar"><i style="width:${d.charge}%;background:${d.charge < 30 ? 'var(--red)' : 'var(--teal)'}"></i></div></td></tr>`; }).join('') : '';
+  $('rpm-drTbl').innerHTML = DR.docks.length ? '<tr><th>Dock</th><th>Covers</th><th>Ready</th><th>Drone</th><th>Battery</th></tr>' + DR.docks.map(d => { const st = d.offline ? (DR.profile.backup ? 'on backup' : 'offline') : (d.state === 'ready' && typeof wxReason === 'function' && wxReason() ? 'grounded' : d.state), rd = readiness(d);
+    return `<tr class="rpm-tr${d.id === chkDock ? ' sel' : ''}" data-id="${d.id}" data-lon="${d.lon}" data-lat="${d.lat}"><td>${d.id}</td><td>${d.covers}</td><td>${rd}%</td><td class="${st === 'offline' || st === 'grounded' || st === 'drained' || st === 'on backup' ? 'rpm-bad' : ''}">${st}</td><td>${Math.round(d.charge)}%<div class="rpm-bar"><i style="width:${d.charge}%;background:${d.charge < 30 ? 'var(--red)' : 'var(--teal)'}"></i></div></td></tr>`; }).join('') : '';
 }
 function fillTargets() {
   const opts = []; const inc = M.inc.filter(i => i.cat === 'jam' || i.cat === 'closed').sort((a, b) => (b.delay || 0) - (a.delay || 0) || b.len - a.len).slice(0, 12);
@@ -1718,19 +1729,25 @@ function flyMarker(from, to, label, after) {
 }
 function chargeDock(d, used) {
   d.charge = Math.max(0, d.charge - used); d.state = 'flying'; renderDocks();
-  const returnAt = 2 * 1500 + 1200; setTimeout(() => { d.state = 'charging'; renderDocks(); const iv = setInterval(() => { d.charge = Math.min(100, d.charge + 6); if (d.charge >= 100) { d.state = 'ready'; clearInterval(iv); } renderDocks(); }, 400); }, returnAt);
+  const returnAt = 2 * 1500 + 1200, idle = () => { d.state = d.charge >= 30 ? 'ready' : 'drained'; renderDocks(); };
+  setTimeout(() => {
+    if (d.offline) return idle(); // no mains power: the aircraft does not recharge
+    d.state = 'charging'; renderDocks();
+    const rate = 70 / DR.profile.chargeMin; // percent per real second: the datasheet's 20 to 90% in chargeMin minutes, simulated CHARGE_X times faster
+    const iv = setInterval(() => { if (d.offline) { clearInterval(iv); return idle(); } d.charge = Math.min(100, d.charge + rate * 0.4); if (d.charge >= DR.profile.readyPct) { d.state = 'ready'; clearInterval(iv); } renderDocks(); }, 400);
+  }, returnAt);
 }
 async function sendDrone(opts = {}) {
   const purpose = opts.purpose || $('rpm-drPurpose').value, blur = opts.blur ?? $('rpm-drBlur').checked, out = $('rpm-drFly');
   if (!DR.docks.length) { out.innerHTML = '<span class="rpm-err">Find dock sites first.</span>'; return; }
   const tgt = opts.target || DR.targets[+$('rpm-drTarget').value]; if (!tgt) return;
-  const to = tgt[1], free = DR.docks.filter(d => d.state === 'ready' && !d.offline && d.charge >= 30), usable = DR.docks.filter(d => !d.offline);
+  const to = tgt[1], runs = d => !d.offline || DR.profile.backup, free = DR.docks.filter(d => d.state === 'ready' && runs(d) && d.charge >= 30), usable = DR.docks.filter(runs); // a dock on backup power can still launch, it just cannot recharge
   const near = (free.length ? free : usable.length ? usable : DR.docks).slice().sort((a, b) => hav([a.lon, a.lat], to) - hav([b.lon, b.lat], to))[0], from = [near.lon, near.lat];
   const rec = { dock: near.id, purpose, purposeLabel: PURPOSES[purpose], target: tgt[0], blur, retentionH: DR.policy.retentionH, operator: SRV.user || 'browser', status: 'complete', reason: '' };
   let why = policyCheck(purpose, blur, from, to);
   if (!why) { const w = wxReason(); if (w) why = 'grounded: ' + w; }
   if (!why && !free.length) why = usable.length ? 'no drone is ready (all are flying or charging)' : 'every dock is offline';
-  if (!why && hav(from, to) > DR.range) why = `target is ${(hav(from, to) / 1000).toFixed(1)} km from the nearest dock, beyond the ${DR.range / 1000} km range`;
+  const reach = Math.min(DR.range, DR.profile.radiusKm * 1000); if (!why && hav(from, to) > reach) why = `target is ${(hav(from, to) / 1000).toFixed(1)} km from the nearest dock, beyond the ${reach / 1000} km range`;
   if (why) { rec.status = 'refused'; rec.reason = why; await recordFlight(rec); out.innerHTML = `<span class="rpm-bad">Refused: ${esc(why)}.</span>`; return rec; }
   const dist = hav(from, to), droneEta = 20 + dist / DRONE_MS, stn = SNAP.fire.slice().sort((a, b) => hav([a.lon, a.lat], to) - hav([b.lon, b.lat], to))[0];
   let ground = null; try { ground = (await getRoute([stn.lon, stn.lat], to)).s } catch {}
@@ -1764,27 +1781,42 @@ function renderChecklist() {
   if (!d) { box.innerHTML = DR.docks.length ? '<div class="rpm-note">Click a dock in the table or on the map to open its site checklist.</div>' : ''; return; }
   const sc = readiness(d);
   box.innerHTML = `<h3 style="margin:0 0 6px">Site checklist: ${d.id} <span class="rpm-note">${sc}% ready${sc === 100 ? ' · ready to pilot' : sc >= 75 ? ' · nearly there' : ''}</span></h3>` + CHK_ITEMS.map(([k, label, kind]) =>
-    `<label style="display:flex;gap:8px;margin:4px 0;font-size:13px"><input type="checkbox" data-chk="${k}" ${chkState(d, k) ? 'checked' : ''} ${kind === 'a' ? 'disabled' : ''}> <span>${esc(label)}${kind === 'a' ? ' <span class="rpm-note">(checked by the app)</span>' : ''}</span></label>`).join('') +
-    `<div class="rpm-note" style="margin-top:6px">Tick each item once it is confirmed on site. A dock needs power, so check that first. ${d.offline ? '<b class="rpm-bad">This dock is offline.</b>' : ''}</div>
-     <div class="rpm-row"><button class="btn" data-act="drone-toggle" data-id="${d.id}" type="button">${d.offline ? 'Restore power' : 'Simulate power loss'}</button></div>`;
+    `<label style="display:flex;gap:8px;margin:4px 0;font-size:13px"><input type="checkbox" data-chk="${k}" ${chkState(d, k) ? 'checked' : ''} ${kind === 'a' ? 'disabled' : ''}> <span>${esc(k === 'power' && DR.profile.powerW ? `Power feed at the pole: ${DR.profile.volts}, up to ${DR.profile.powerW} W` : label)}${kind === 'a' ? ' <span class="rpm-note">(checked by the app)</span>' : ''}</span></label>`).join('') +
+    `<div class="rpm-note" style="margin-top:6px">Tick each item once it is confirmed on site. A dock needs power, so check that first. ${d.offline ? `<b class="rpm-bad">${DR.profile.backup ? 'This dock has lost mains power and is on its backup battery.' : 'This dock is offline.'}</b>` : ''}</div>
+     <div class="rpm-row"><button class="btn" data-act="drone-toggle" data-id="${d.id}" type="button">${d.offline ? 'Restore mains power' : 'Simulate mains power loss'}</button></div>`;
 }
 function selectDock(id, fly) { chkDock = id; renderChecklist(); renderDocks(); const d = DR.docks.find(x => x.id === id); if (d && fly && map) map.flyTo({ center: [d.lon, d.lat], zoom: 15, pitch: 62, duration: 1200 }); }
 $('rpm-drChk').addEventListener('change', e => { const k = e.target.dataset.chk, d = DR.docks.find(x => x.id === chkDock); if (!k || !d) return; const key = dockKey(d); CHK[key] = { ...(CHK[key] || {}), [k]: e.target.checked }; store.set('rp.dockchk.v1', JSON.stringify(CHK)); renderChecklist(); renderDocks(); });
 
 /* flying conditions */
-const WX = { wind: 15, temp: 41, dust: false, rain: false }, WX_LIMITS = { wind: 36, temp: 50 };
-const wxReason = () => WX.wind > WX_LIMITS.wind ? `wind gusts of ${WX.wind} km/h exceed the ${WX_LIMITS.wind} km/h limit` : WX.temp > WX_LIMITS.temp ? `air temperature of ${WX.temp} °C exceeds the ${WX_LIMITS.temp} °C limit` : WX.dust ? 'sandstorm, visibility too low to fly' : WX.rain ? 'heavy rain' : '';
+const WX = { wind: 15, temp: 41, dust: false, rain: 0 }, WX_LIMITS = { wind: 29, temp: 45, rain: 2 };
+const wxReason = () => WX.wind > WX_LIMITS.wind ? `wind gusts of ${WX.wind} km/h exceed the ${WX_LIMITS.wind} km/h limit` : WX.temp > WX_LIMITS.temp ? `air temperature of ${WX.temp} °C exceeds the ${WX_LIMITS.temp} °C limit` : WX.rain > WX_LIMITS.rain ? `rain of ${WX.rain} mm/h exceeds the ${WX_LIMITS.rain} mm/h limit` : WX.dust ? 'sandstorm, visibility too low to fly (assumed; not in the datasheet)' : '';
 function wxSync() {
-  $('rpm-wxWind').value = WX.wind; $('rpm-wxTemp').value = WX.temp; $('rpm-wxDust').checked = WX.dust; $('rpm-wxRain').checked = WX.rain; $('rpm-wxWindv').textContent = WX.wind; $('rpm-wxTempv').textContent = WX.temp;
+  $('rpm-wxWind').value = WX.wind; $('rpm-wxTemp').value = WX.temp; $('rpm-wxDust').checked = WX.dust; $('rpm-wxRain').value = WX.rain; $('rpm-wxRainv').textContent = WX.rain; $('rpm-wxNote').textContent = `Limits from the selected profile: gusts over ${WX_LIMITS.wind} km/h, air over ${WX_LIMITS.temp} °C, rain over ${WX_LIMITS.rain} mm/h. A sandstorm grounds the drone too (assumed).`; $('rpm-wxWindv').textContent = WX.wind; $('rpm-wxTempv').textContent = WX.temp;
   const r = wxReason(); $('rpm-wxState').innerHTML = r ? `<b class="rpm-bad">grounded: ${esc(r)}</b>` : '<b class="rpm-ok">OK to fly</b>'; renderDocks();
 }
 $('rpm-wxWind').oninput = () => { WX.wind = +$('rpm-wxWind').value; wxSync() }; $('rpm-wxTemp').oninput = () => { WX.temp = +$('rpm-wxTemp').value; wxSync() };
-$('rpm-wxDust').onchange = () => { WX.dust = $('rpm-wxDust').checked; wxSync() }; $('rpm-wxRain').onchange = () => { WX.rain = $('rpm-wxRain').checked; wxSync() };
+$('rpm-wxDust').onchange = () => { WX.dust = $('rpm-wxDust').checked; wxSync() }; $('rpm-wxRain').oninput = () => { WX.rain = +$('rpm-wxRain').value; wxSync() };
 $('rpm-wxLive').onclick = async () => {
   try { const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=24.47&longitude=54.37&current=temperature_2m,wind_gusts_10m,precipitation'); if (!r.ok) throw new Error('HTTP ' + r.status);
-    const c = (await r.json()).current; WX.wind = Math.round(c.wind_gusts_10m); WX.temp = Math.round(c.temperature_2m); WX.rain = c.precipitation >= 2; wxSync(); $('rpm-drFly').innerHTML = `<span class="rpm-note">Live weather from Open-Meteo: gusts ${WX.wind} km/h, ${WX.temp} °C${WX.rain ? ', heavy rain' : ''}. Sandstorm is not in the feed, so tick it by hand.</span>`;
+    const c = (await r.json()).current; WX.wind = Math.round(c.wind_gusts_10m); WX.temp = Math.round(c.temperature_2m); WX.rain = Math.round((c.precipitation || 0) * 10) / 10; wxSync(); $('rpm-drFly').innerHTML = `<span class="rpm-note">Live weather from Open-Meteo: gusts ${WX.wind} km/h, ${WX.temp} °C, rain ${WX.rain} mm/h. Sandstorm is not in the feed, so tick it by hand.</span>`;
   } catch (e) { $('rpm-drFly').innerHTML = `<span class="rpm-err">Live weather unavailable (${esc(e.message)}). Set the conditions by hand.</span>` }
 };
+
+/* hardware profile */
+function renderSpec() {
+  const p = DR.profile;
+  $('rpm-drSpec').innerHTML = p.sources
+    ? `<b>${esc(p.name)}</b>: stays in the dock above ${p.wind} km/h gusts (${(p.wind / 3.6).toFixed(0)} m/s), ${p.temp} °C air or ${p.rain} mm/h rain; ${p.flightMin} min flight; ${p.radiusKm} km operating radius; recharge 20 to 90% in ${p.chargeMin} min; power ${esc(p.volts)}, up to ${p.powerW} W; ${p.backupH} h backup battery, but no aircraft charging on backup; ${esc(p.ip)}. Sources: ${p.sources.map(x => `<a href="${x[1]}" target="_blank" rel="noopener" style="color:var(--teal)">${esc(x[0])}</a>`).join(', ')}. Checked 24 Oct 2026; confirm against the datasheet for the unit you buy. On the hottest summer days Abu Dhabi can reach this ${p.temp} °C limit.`
+    : 'Assumed limits, not a manufacturer\'s. Pick the DJI profile to use published figures.';
+}
+function applyProfile(key) {
+  DR.profile = PROFILES[key] || PROFILES.dji; const p = DR.profile; store.set('rp.profile', key); $('rpm-drProf').value = key;
+  WX_LIMITS.wind = p.wind; WX_LIMITS.temp = p.temp; WX_LIMITS.rain = p.rain; FLIGHT_S = p.flightMin * 60;
+  const r = $('rpm-drR'); r.max = p.radiusKm; if (+r.value > p.radiusKm) { r.value = p.radiusKm; $('rpm-drRv').textContent = r.value; }
+  renderSpec(); renderChecklist(); wxSync();
+}
+$('rpm-drProf').onchange = () => applyProfile($('rpm-drProf').value);
 
 /* the public notice that goes on each pole */
 const noticeText = d => `Drone dock ${d.id}. Drones launch from this pole for incident response, congestion monitoring and emergency escort only. Faces and number plates are blurred on board. Footage is deleted after ${DR.policy.retentionH} hours. Every flight is listed in the public flight register.`;
@@ -1814,7 +1846,7 @@ async function runAct(act, at, id) {
   else if (act === 'drone-power') {
     const d = DR.docks.slice().sort((a, b) => hav([a.lon, a.lat], at) - hav([b.lon, b.lat], at))[0]; d.offline = true; selectDock(d.id, false);
     const rec = await sendDrone({ purpose: 'incident', blur: true, target: ['Near dock ' + d.id, [d.lon + 0.002, d.lat + 0.001], 'x'] });
-    $('rpm-drFly').innerHTML += `<p>Dock ${d.id} is offline${rec && rec.status === 'complete' ? `, so dock <b>${rec.dock}</b> took the job.` : '. No other dock is within range, so this area has no aerial cover until power is restored.'} <button class="btn" data-act="drone-restore" type="button">Restore power</button></p>`; show();
+    $('rpm-drFly').innerHTML += `<p>${DR.profile.backup ? `Dock ${d.id} lost mains power and is on its backup battery (about ${DR.profile.backupH} h). It ${rec && rec.status === 'complete' ? 'still launched the drone' : 'could not launch'}, but the aircraft will not recharge, and cabin cooling and cover heating stop too, so it can fly only until its battery is low.` : `Dock ${d.id} is offline${rec && rec.status === 'complete' ? `, so dock <b>${rec.dock}</b> took the job.` : '. No other dock is within range, so this area has no aerial cover until power is restored.'}`} <button class="btn" data-act="drone-restore" type="button">Restore power</button></p>`; show();
   }
   else if (act === 'drone-escort') {
     const f = $('rpm-from'), t = $('rpm-to'); f.selectedIndex = [...f.options].findIndex(o => /Al Zaab/.test(o.text)); t.selectedIndex = 0; $('rpm-escort').checked = true;
@@ -1823,7 +1855,7 @@ async function runAct(act, at, id) {
   else if (act === 'drone-signs') { const n = downloadSigns(); if (n) $('rpm-drFly').innerHTML = `<span class="rpm-note">Downloaded notices for ${n} poles. ${esc(noticeContact())}</span>`; show(); }
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b) runAct(b.dataset.act, [+b.dataset.lon, +b.dataset.lat], b.dataset.id).catch(err => { $('rpm-drFly').innerHTML = `<span class="rpm-err">${esc(err.message)}</span>` }) });
-wxSync();
+applyProfile(store.get('rp.profile') || 'dji');
 
 /* ---------- refresh / wiring ---------- */
 async function refreshLive(manual) {
@@ -1868,7 +1900,7 @@ document.querySelectorAll('#v-map [data-l]').forEach(c => c.onchange = () => { M
 $('rpm-tilt').onclick = () => { M.pitch = map.getPitch() > 10 ? 0 : 58; map.easeTo({ pitch: M.pitch, duration: 700 }) };
 $('rpm-reset').onclick = () => map.flyTo({ center: CENTER, zoom: 11.3, pitch: 58, bearing: -18, duration: 1200 });
 $('rpm-style').onclick = () => { M.style = M.style === 'light' ? 'grey' : 'light'; map.setStyle(STYLES[M.style]) };
-window.RPDrone = { DR, planDocks, sendDrone, policyCheck, renderRegister, inNoFly, WX, wxSync, readiness, runAct, downloadSigns };
+window.RPDrone = { DR, PROFILES, applyProfile, planDocks, sendDrone, policyCheck, renderRegister, inNoFly, WX, wxSync, readiness, runAct, downloadSigns };
 window.RPMap = { activate() { if (!map) initMap(); else requestAnimationFrame(() => map.resize()) }, M, P, UC, state: () => ({ map, mapReady }), selectUC, hospRows, planRoute, startRun, stopRun };
 })();
 
