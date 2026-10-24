@@ -195,6 +195,9 @@ h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.
 .rpp-verdict{font:600 15px var(--mono);margin-top:10px;min-height:22px}
 .rpp-inc{border-top:1px solid var(--line);padding:8px 0;font-size:13px}
 .rpp-pre{margin:0;white-space:pre-wrap;word-break:break-all;font:12px var(--mono);color:var(--muted);max-height:280px;overflow:auto}
+.rpm-drone{width:20px;height:20px;border-radius:5px;background:#101c22;border:2px solid #7fe3d4;box-shadow:0 0 12px #7fe3d4;display:grid;place-items:center;transform:rotate(45deg)}
+.rpm-drone::after{content:"";width:6px;height:6px;border-radius:50%;background:#7fe3d4}
+.rpm-pri li{margin:4px 0}
 .rpm-ok{color:var(--ok)}.rpm-bad{color:var(--red)}.rpm-warn{color:var(--amber)}
 </style>
 
@@ -331,6 +334,7 @@ h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.
             <input type="range" id="rpm-sec" min="1" max="9" step="1" value="5" style="width:100%;accent-color:var(--amber)">
             <label class="rpm-lbl" for="rpm-beh">Vehicle behaviour for the run</label>
             <select class="sel rpm-in" id="rpm-beh"><option value="genuine">Genuine ambulance, patient on board</option><option value="returning">Returning to station, no priority (E7)</option><option value="clone">Cloned tag (S2)</option><option value="replay">Replayed message (S3)</option></select>
+            <label style="display:flex;gap:8px;margin:8px 0 0;font-size:13px"><input type="checkbox" id="rpm-escort"> Drone escort scouts the route and confirms each zone is clear <span class="rpm-note">(simulated sightings)</span></label>
             <div class="rpm-row"><button class="btn primary" id="rpm-plan" type="button">Plan route</button><button class="btn" id="rpm-run" type="button" disabled>Run RapidPass corridor</button><button class="btn" id="rpm-stop" type="button" disabled>Stop</button><button class="btn" id="rpm-green" type="button">Open green corridor in Live</button></div>
             <div id="rpm-routeOut" class="rpm-note" style="margin-top:8px"></div></div>
           <div class="card"><h3>Pilot corridors <span class="rpm-note" id="rpm-leagueState"></span></h3>
@@ -341,6 +345,31 @@ h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.
             <div class="rpm-note">Shaded areas can be reached from a civil defence station within 4, 6 and 8 minutes. White gaps are where a response takes longer.</div>
             <div class="rpm-row"><button class="btn primary" id="rpm-cov" type="button">Compute coverage</button><label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="rpm-covShow" checked> Show on map</label></div>
             <div id="rpm-covOut" class="rpm-note" style="margin-top:8px"></div></div>
+          <div class="card"><h3>Drone docks <span class="rpm-note" id="rpm-drState"></span></h3>
+            <div class="rpm-note">Docking stations on traffic-signal poles let drones land, recharge and launch again, linking aerial views to the ground network. Sites are real signal poles from OpenStreetMap, chosen to cover hospitals, civil defence stations and today's jams and closures.</div>
+            <label class="rpm-lbl" for="rpm-drN">Docks: <b id="rpm-drNv">10</b></label><input type="range" id="rpm-drN" min="3" max="25" step="1" value="10" style="width:100%;accent-color:var(--amber)">
+            <label class="rpm-lbl" for="rpm-drR">Drone range from a dock: <b id="rpm-drRv">2</b> km</label><input type="range" id="rpm-drR" min="1" max="4" step="0.5" value="2" style="width:100%;accent-color:var(--amber)">
+            <div class="rpm-row"><button class="btn primary" id="rpm-drPlan" type="button">Find dock sites</button></div>
+            <div id="rpm-drOut" class="rpm-note" style="margin-top:8px"></div>
+            <div class="rpm-tbl-wrap"><table class="tbl" id="rpm-drTbl"></table></div></div>
+          <div class="card"><h3>Send a drone <span class="rpm-note" id="rpm-drFlyState"></span></h3>
+            <label class="rpm-lbl" for="rpm-drTarget">Where to</label><select class="sel rpm-in" id="rpm-drTarget"></select>
+            <label class="rpm-lbl" for="rpm-drPurpose">Purpose (required, and recorded)</label><select class="sel rpm-in" id="rpm-drPurpose"><option value="incident">Incident response</option><option value="congestion">Congestion monitoring</option><option value="escort">Emergency corridor escort</option><option value="other">Other (not permitted)</option></select>
+            <label style="display:flex;gap:8px;margin:8px 0 0;font-size:13px"><input type="checkbox" id="rpm-drBlur" checked> Blur faces and number plates on board</label>
+            <div class="rpm-row"><button class="btn primary" id="rpm-drSend" type="button">Send drone</button></div>
+            <div id="rpm-drFly" class="rpm-note" style="margin-top:8px"></div></div>
+          <div class="card"><h3>Privacy and flight register <span class="rpm-note" id="rpm-drCount"></span></h3>
+            <div class="rpm-note">Who is watching, what is collected, how it is used. These rules are enforced before a drone launches, and every flight, including refused ones, is recorded here and in the Passes audit log.</div>
+            <ul class="rpm-find rpm-pri" style="margin-top:6px">
+              <li><b>Purpose limit:</b> only incident response, congestion monitoring and emergency escort. Anything else is refused.</li>
+              <li><b>Blurring:</b> faces and plates must be blurred on board. A flight without it is refused.</li>
+              <li><b>No-fly zones:</b> flights into or across airport buffers are refused (shown in red on the map).</li>
+              <li><b>Retention:</b> footage is deleted after the period below. This app records flight details only; it stores no video or personal data.</li>
+              <li><b>Transparency:</b> the register below lists every flight, with who sent it and why.</li></ul>
+            <label class="rpm-lbl" for="rpm-drRet">Retention: <b id="rpm-drRetv">24</b> hours <span class="rpm-note">(maximum 72)</span></label><input type="range" id="rpm-drRet" min="1" max="72" step="1" value="24" style="width:100%;accent-color:var(--amber)">
+            <div class="rpm-tbl-wrap" style="margin-top:8px"><table class="tbl" id="rpm-drReg"></table></div>
+            <div class="rpm-row"><button class="btn" id="rpm-drCsv" type="button">Export CSV</button><button class="btn" id="rpm-drClear" type="button">Clear register</button></div>
+            <div class="rpm-note" style="margin-top:6px">Aviation rules in the UAE are set by the GCAA. The zones here are illustrative buffers, not legal advice.</div></div>
           <div class="card"><h3>Hospital access <span class="rpm-note" id="rpm-bumpState"></span></h3><div class="rpm-tbl-wrap"><table class="tbl" id="rpm-hosp"></table></div>
             <div class="rpm-note" style="margin-top:6px">Speed bumps come from OpenStreetMap and may be incomplete. Counts are within 1 km, so they are an upper bound for any one approach.</div></div>
           <div class="card"><h3>Layers</h3>
@@ -350,6 +379,7 @@ h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.
             <label style="display:flex;gap:8px;margin:5px 0"><input type="checkbox" data-l="towers" checked> 3D delay towers</label>
             <label style="display:flex;gap:8px;margin:5px 0"><input type="checkbox" data-l="places" checked> Hospitals and civil defence</label>
             <label style="display:flex;gap:8px;margin:5px 0"><input type="checkbox" data-l="bumps" checked> Speed bumps (OpenStreetMap)</label>
+            <label style="display:flex;gap:8px;margin:5px 0"><input type="checkbox" data-l="drones" checked> Drone docks, range and no-fly zones</label>
             <label style="display:flex;gap:8px;margin:5px 0"><input type="checkbox" data-l="b3d" checked> 3D buildings</label>
             <div class="rpm-row"><button class="btn" id="rpm-tilt" type="button">Flat / 3D</button><button class="btn" id="rpm-reset" type="button">Reset view</button><button class="btn" id="rpm-style" type="button">Light / grey map</button></div></div>
           <div class="rpm-note">Map: OpenFreeMap and OpenStreetMap contributors. Traffic, places and routing: TomTom. Routes without a key use the free OSRM demo server.</div>
@@ -1218,7 +1248,7 @@ try { const m = location.hash.match(/[#&]key=([^&]+)/); if (m) { store.set('rp.t
 const storedKey = store.get('rp.tomtom');
 const SNAP = JSON.parse($('rp-snapshot').textContent);
 const M = { key: storedKey === null ? DEFAULT_KEY : storedKey, inc: [], live: false, updated: null, bumps: null, bumpsErr: '', flow: {}, route: null, style: 'light', pitch: 58,
-  layers: { uc: true, flow: false, inc: true, towers: true, places: true, bumps: true, b3d: true }, ucFilter: 'ALL', run: null };
+  layers: { uc: true, flow: false, inc: true, towers: true, places: true, bumps: true, b3d: true, drones: true }, ucFilter: 'ALL', run: null };
 let map = null, mapReady = false, ucMarkers = [], vehMarker = null, popup = null, incTimer = 0, flowTimer = 0;
 
 /* ---------- the 37 use cases, placed on the map ---------- */
@@ -1313,7 +1343,7 @@ const flowUrl = () => `${TT}/traffic/map/4/tile/flow/relative/{z}/{x}/{y}.png?ke
 
 function addAll() {
   const add = (id, d) => { if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: d }) };
-  add('places', placesGeo()); add('ptowers', placeTowers()); add('inc', incLines()); add('jtowers', jamTowers()); add('bumps', bumpsGeo()); add('route', emptyGeo); add('rbumps', emptyGeo); ['480', '360', '240'].forEach(b => add('cov' + b, COV.done ? covGeo(+b) : emptyGeo));
+  add('places', placesGeo()); add('ptowers', placeTowers()); add('inc', incLines()); add('jtowers', jamTowers()); add('bumps', bumpsGeo()); add('route', emptyGeo); add('rbumps', emptyGeo); add('nofly', noflyGeo()); add('dockrange', drGeo.range()); add('docks', drGeo.docks()); add('dtowers', drGeo.towers()); add('dronepath', emptyGeo); ['480', '360', '240'].forEach(b => add('cov' + b, COV.done ? covGeo(+b) : emptyGeo));
   const L = d => { if (!map.getLayer(d.id)) map.addLayer(d) };
   const st = map.getStyle(), has3d = (st.layers || []).some(l => l.type === 'fill-extrusion'), vec = Object.keys(st.sources || {}).find(k => st.sources[k].type === 'vector');
   if (!has3d && vec) L({ id: 'rp-b3d', type: 'fill-extrusion', source: vec, 'source-layer': 'building', minzoom: 13, paint: { 'fill-extrusion-color': M.style === 'grey' ? '#3a444b' : '#c9ccd2', 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 12], 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0], 'fill-extrusion-opacity': 0.85 } });
@@ -1330,12 +1360,20 @@ function addAll() {
   L({ id: 'route-casing', type: 'line', source: 'route', paint: { 'line-color': '#0b1114', 'line-width': 9 }, layout: { 'line-cap': 'round', 'line-join': 'round' } });
   L({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#38c6b2', 'line-width': 5 }, layout: { 'line-cap': 'round', 'line-join': 'round' } });
   L({ id: 'rbump', type: 'circle', source: 'rbumps', paint: { 'circle-radius': 7, 'circle-stroke-color': '#0b1013', 'circle-stroke-width': 2, 'circle-color': ['match', ['get', 's'], 'lowered', '#38c6b2', 'refused', '#ff5d52', 'reset', '#8c9ca5', '#f2b632'] } });
+  L({ id: 'nofly', type: 'fill', source: 'nofly', paint: { 'fill-color': '#ff3b30', 'fill-opacity': 0.12 } });
+  L({ id: 'nofly-line', type: 'line', source: 'nofly', paint: { 'line-color': '#ff3b30', 'line-width': 1.5, 'line-dasharray': [3, 2] } });
+  L({ id: 'dockrange', type: 'fill', source: 'dockrange', paint: { 'fill-color': '#7fe3d4', 'fill-opacity': 0.07 } });
+  L({ id: 'dockrange-line', type: 'line', source: 'dockrange', paint: { 'line-color': '#7fe3d4', 'line-width': 1, 'line-opacity': 0.6 } });
+  L({ id: 'dock-tower', type: 'fill-extrusion', source: 'dtowers', paint: { 'fill-extrusion-color': '#7fe3d4', 'fill-extrusion-height': 70, 'fill-extrusion-opacity': 0.9 } });
+  L({ id: 'dock-dot', type: 'circle', source: 'docks', paint: { 'circle-color': '#7fe3d4', 'circle-radius': 6, 'circle-stroke-color': '#0b1013', 'circle-stroke-width': 2 } });
+  L({ id: 'dronepath', type: 'line', source: 'dronepath', paint: { 'line-color': '#7fe3d4', 'line-width': 2, 'line-dasharray': [2, 2] } });
   applyVis(); refreshData();
 }
 function applyVis() {
   if (!map || !map.getStyle()) return; const l = M.layers;
   vis('flow', l.flow && !!M.key); ['inc-closed', 'inc-works', 'inc-jam'].forEach(id => vis(id, l.inc)); vis('jam-tower', l.towers);
   ['place-tower', 'place-dot'].forEach(id => vis(id, l.places)); vis('bumps', l.bumps);
+  ['nofly', 'nofly-line', 'dockrange', 'dockrange-line', 'dock-tower', 'dock-dot', 'dronepath'].forEach(id => vis(id, l.drones));
   (map.getStyle().layers || []).forEach(x => { if (x.type === 'fill-extrusion' && !['jam-tower', 'place-tower'].includes(x.id)) vis(x.id, l.b3d) });
   ucMarkers.forEach(m => { m.getElement().style.display = (l.uc && (M.ucFilter === 'ALL' || m._g === M.ucFilter)) ? '' : 'none' });
 }
@@ -1446,7 +1484,7 @@ async function planRoute() {
   } catch (e) { out.innerHTML = `<span class="rpm-err">${esc(e.message)}</span>` }
   $('rpm-plan').disabled = false;
 }
-function stopRun() { if (M.run) { M.run.stop = true; M.run = null } if (vehMarker) { vehMarker.remove(); vehMarker = null } $('rpm-stop').disabled = true; $('rpm-plan').disabled = false }
+function stopRun() { if (M.run) { M.run.stop = true; if (M.run.escortMk) M.run.escortMk.remove(); M.run = null } if (vehMarker) { vehMarker.remove(); vehMarker = null } $('rpm-stop').disabled = true; $('rpm-plan').disabled = false }
 async function startRun() {
   if (!M.route || !window.crypto || !crypto.subtle) return; const beh = $('rpm-beh').value, sec = +$('rpm-sec').value, r = M.route, rb = routeBumps(r.coords); if (!rb.list || !rb.list.length) return;
   stopRun(); $('rpm-run').disabled = true; $('rpm-stop').disabled = false; $('rpm-plan').disabled = true;
@@ -1459,7 +1497,18 @@ async function startRun() {
   const paint = () => setData('rbumps', { type: 'FeatureCollection', features: run.bumps.map(b => ({ type: 'Feature', properties: { s: b.s }, geometry: { type: 'Point', coordinates: b.p } })) });
   const upd = (note) => { $('rpm-routeOut').innerHTML = `<div class="rpm-kpis"><div class="rpm-kpi"><b>${run.lowered}</b><span>Units lowered for ${esc(plate)}</span></div><div class="rpm-kpi"><b>${run.refused}</b><span>Requests refused</span></div><div class="rpm-kpi"><b>${run.lowered * sec} s</b><span>Time saved (${sec} s per bump)</span></div><div class="rpm-kpi"><b>${run.passed}/${run.bumps.length}</b><span>Bumps passed</span></div></div><p class="rpm-note">${esc(note)}</p>` };
   paint(); upd('Driving the route. At each speed bump within 120 m the vehicle sends a signed message and the edge verifies it.');
+  const escort = $('rpm-escort').checked && DR.docks.length > 0; let escortMk = null;
+  if (escort) {
+    const dock = DR.docks.slice().sort((a, b) => hav([a.lon, a.lat], r.coords[0]) - hav([b.lon, b.lat], r.coords[0]))[0], el = document.createElement('div'); el.className = 'rpm-drone'; escortMk = new maplibregl.Marker({ element: el }).setLngLat(r.coords[0]).addTo(map);
+    await recordFlight({ dock: dock.id, purpose: 'escort', purposeLabel: PURPOSES.escort, target: `${fromN} → ${toN}`, blur: true, retentionH: DR.policy.retentionH, operator: SRV.user || 'browser', status: 'complete', reason: '' });
+  } else if ($('rpm-escort').checked) { $('rpm-routeOut').innerHTML = '<span class="rpm-warn">No docks yet, so no drone escort. Find dock sites first. Running without one.</span>'; }
+  run.escortMk = escortMk;
   const ask = async (b, i) => {
+    if (escort) { // the drone is a third, independent look at the zone before the unit moves
+      const blocked = M.inc.find(x => (x.cat === 'closed' || x.cat === 'jam') && x.geom.some(p => hav(p, b.p) < 40));
+      try { await P.ready(); if (!SRV.token) await P.log('DRONE_ZONE_CHECK', { bump: i + 1, clear: !blocked, reason: blocked ? blocked.cat : '' }); } catch {}
+      if (blocked) { b.s = 'refused'; b.why = 'DRONE: ' + blocked.cat + ' in the zone'; run.refused++; b.res = true; paint(); upd(`Bump ${i + 1}: drone reports a ${blocked.cat} in the zone, so the unit stays raised.`); return; }
+    }
     let mode = 'valid'; if (beh === 'clone') mode = 'forged'; else if (beh === 'replay') mode = run.sent === 0 ? 'valid' : 'replay'; run.sent++;
     try { const res = await API().simulate(plate, mode, 'Bump ' + (i + 1)); b.s = res.ok ? 'lowered' : 'refused'; res.ok ? run.lowered++ : run.refused++; b.why = res.reason } catch (e) { b.s = 'refused'; run.refused++; b.why = e.message }
     b.res = true; paint(); upd(b.s === 'lowered' ? `Bump ${i + 1}: pass accepted, unit lowered.` : `Bump ${i + 1}: request refused (${b.why}), unit stays raised.`);
@@ -1468,8 +1517,9 @@ async function startRun() {
     if (run.stop) return; const d = Math.min(run.total, (now - run.t0) / run.dur * run.total);
     let k = 1; while (k < run.cum.length - 1 && run.cum[k] < d) k++; const f = (d - run.cum[k - 1]) / Math.max(1, run.cum[k] - run.cum[k - 1]), A = r.coords[k - 1], B = r.coords[k];
     const pos = [A[0] + (B[0] - A[0]) * Math.min(1, f), A[1] + (B[1] - A[1]) * Math.min(1, f)]; vehMarker.setLngLat(pos); map.jumpTo({ center: pos });
+    if (run.escortMk) { const ahead = Math.min(run.total, d + 250); let q = 1; while (q < run.cum.length - 1 && run.cum[q] < ahead) q++; const f2 = (ahead - run.cum[q - 1]) / Math.max(1, run.cum[q] - run.cum[q - 1]); run.escortMk.setLngLat(lerp2(r.coords[q - 1], r.coords[q], Math.min(1, f2))); }
     run.bumps.forEach((b, i) => { if (!b.asked && b.d - d <= 120) { b.asked = true; ask(b, i) } if (b.res && !b.done && d > b.d + 15) { b.done = true; run.passed++; if (b.s === 'lowered') b.s = 'reset'; paint() } });
-    if (d >= run.total) { run.bumps.forEach(b => { if (!b.done) { b.done = true; run.passed++ } }); upd(`Run complete: ${run.lowered} of ${run.bumps.length} units lowered, ${run.refused} refused, about ${run.lowered * sec} s saved. Every decision is in the Passes audit log.`); $('rpm-run').disabled = false; $('rpm-stop').disabled = true; $('rpm-plan').disabled = false; return }
+    if (d >= run.total) { run.bumps.forEach(b => { if (!b.done) { b.done = true; run.passed++ } }); upd(`Run complete: ${run.lowered} of ${run.bumps.length} units lowered, ${run.refused} refused, about ${run.lowered * sec} s saved. Every decision is in the Passes audit log.`); if (run.escortMk) { run.escortMk.remove(); run.escortMk = null } $('rpm-run').disabled = false; $('rpm-stop').disabled = true; $('rpm-plan').disabled = false; return }
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
@@ -1549,6 +1599,134 @@ async function computeCoverage() {
 $('rpm-league').onclick = rankCorridors; $('rpm-leagueTbl').addEventListener('click', e => { const t = e.target.closest('tr.rpm-tr'); if (t) showLeagueRoute(+t.dataset.i) });
 $('rpm-cov').onclick = computeCoverage; $('rpm-covShow').onchange = () => { if (map && COV.done) paintCoverage() };
 
+
+/* ---------- drone docks on traffic-signal poles ---------- */
+const DR = { docks: [], flights: [], range: 2000, policy: { retentionH: 24 }, sig: null, sigNote: '', flying: 0 };
+try { const f = JSON.parse(store.get('rp.flights.v1') || '[]'); if (Array.isArray(f)) DR.flights = f; } catch {}
+const NOFLY = [{ name: 'Abu Dhabi International Airport', lon: 54.6511, lat: 24.4330, r: 5000 }, { name: 'Al Bateen Executive Airport', lon: 54.4583, lat: 24.4283, r: 3000 }];
+const PURPOSES = { incident: 'Incident response', congestion: 'Congestion monitoring', escort: 'Emergency corridor escort', other: 'Other' };
+const DRONE_MS = 15, SIM_X = 12, FLIGHT_S = 1500; // 15 m/s cruise, simulated 12x faster than real, 25 min of flight per charge
+const noflyGeo = () => ({ type: 'FeatureCollection', features: NOFLY.map(z => ({ type: 'Feature', properties: { name: z.name }, geometry: { type: 'Polygon', coordinates: circle(z.lon, z.lat, z.r, 48) } })) });
+const drGeo = {
+  range: () => ({ type: 'FeatureCollection', features: DR.docks.map(d => ({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: circle(d.lon, d.lat, DR.range, 48) } })) }),
+  docks: () => ({ type: 'FeatureCollection', features: DR.docks.map(d => ({ type: 'Feature', properties: { id: d.id }, geometry: { type: 'Point', coordinates: [d.lon, d.lat] } })) }),
+  towers: () => ({ type: 'FeatureCollection', features: DR.docks.map(d => ({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: circle(d.lon, d.lat, 12, 12) } })) }),
+};
+const inNoFly = p => NOFLY.find(z => hav(p, [z.lon, z.lat]) < z.r);
+const pathNoFly = (a, b) => { for (let i = 0; i <= 24; i++) { const t = i / 24, z = inNoFly([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); if (z) return z; } return null; };
+const lerp2 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+
+async function loadSignals() {
+  if (DR.sig) return;
+  const cached = store.get('rp.signals.v1');
+  if (cached) { try { const c = JSON.parse(cached); if (Date.now() - c.t < 7 * 864e5) { DR.sig = c.pts; return; } } catch {} }
+  const q = '[out:json][timeout:60];node["highway"="traffic_signals"](24.2,54.2,24.7,54.9);out;'; let last = '';
+  for (const m of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']) {
+    try { const r = await fetch(m, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'content-type': 'application/x-www-form-urlencoded' } });
+      if (!r.ok) { last = 'HTTP ' + r.status; continue } const j = await r.json();
+      DR.sig = (j.elements || []).map(e => [e.lon, e.lat]); store.set('rp.signals.v1', JSON.stringify({ t: Date.now(), pts: DR.sig })); return;
+    } catch (e) { last = e.message }
+  }
+  throw new Error('OpenStreetMap traffic signals unavailable (' + last + ')');
+}
+/** What the docks should cover: hospitals, civil defence stations, and today's jams and closures. */
+function demandPoints() {
+  const d = [];
+  SNAP.hospitals.forEach(h => d.push({ p: [h.lon, h.lat], w: h.major ? 3 : 1, k: 'hospital' }));
+  SNAP.fire.forEach(h => d.push({ p: [h.lon, h.lat], w: 2, k: 'station' }));
+  M.inc.filter(i => i.cat === 'jam' || i.cat === 'closed').sort((a, b) => (b.delay || b.len / 20) - (a.delay || a.len / 20)).slice(0, 60)
+    .forEach(i => d.push({ p: i.geom[Math.floor(i.geom.length / 2)], w: i.cat === 'jam' ? 2 : 1, k: i.cat }));
+  return d;
+}
+async function planDocks() {
+  const out = $('rpm-drOut'); $('rpm-drPlan').disabled = true; out.textContent = 'Loading traffic-signal poles…';
+  try {
+    let note = ''; try { await loadSignals() } catch (e) { DR.sig = null; note = e.message + '. Using hospital and station sites instead (modelled).' }
+    const cand = (DR.sig && DR.sig.length ? DR.sig : [...SNAP.hospitals, ...SNAP.fire].map(h => [h.lon, h.lat])).filter(p => !inNoFly(p));
+    const k = +$('rpm-drN').value; DR.range = +$('rpm-drR').value * 1000; const dem = demandPoints(), covered = new Set(), picks = [];
+    for (let n = 0; n < k; n++) {
+      let best = null, bs = 0;
+      for (const c of cand) { let sc = 0; dem.forEach((x, i) => { if (!covered.has(i) && hav(c, x.p) <= DR.range) sc += x.w; }); if (sc > bs) { bs = sc; best = c; } }
+      if (!best) break; dem.forEach((x, i) => { if (hav(best, x.p) <= DR.range) covered.add(i); }); picks.push(best);
+    }
+    DR.docks = picks.map((p, i) => ({ id: 'D' + (i + 1), lon: p[0], lat: p[1], state: 'ready', charge: 100, covers: dem.filter(x => hav(p, x.p) <= DR.range).length }));
+    const share = kind => { const all = dem.filter(x => x.k === kind); return all.length ? Math.round(all.filter(x => DR.docks.some(d => hav([d.lon, d.lat], x.p) <= DR.range)).length / all.length * 100) : null; };
+    const row = (l, v) => v == null ? '' : `<div class="rpm-kpi"><b>${v}%</b><span>${l}</span></div>`;
+    out.innerHTML = `<div class="rpm-kpis">${row('of hospitals within reach of a dock', share('hospital'))}${row('of civil defence stations', share('station'))}${row('of jams today', share('jam'))}${row('of road closures today', share('closed'))}</div>
+      <p class="rpm-note">${DR.docks.length} docks, ${DR.range / 1000} km range each, ${DR.sig ? DR.sig.length.toLocaleString() + ' signal poles considered (OpenStreetMap)' : 'modelled sites'}. ${esc(note)}</p>`;
+    $('rpm-drState').textContent = DR.docks.length + ' docks'; renderDocks(); fillTargets();
+    if (map && map.getSource('docks') && DR.docks.length) { const b = DR.docks.reduce((bx, d) => bx.extend([d.lon, d.lat]), new maplibregl.LngLatBounds([DR.docks[0].lon, DR.docks[0].lat], [DR.docks[0].lon, DR.docks[0].lat])); map.fitBounds(b, { padding: 90, pitch: M.pitch, duration: 1200 }); }
+  } catch (e) { out.innerHTML = `<span class="rpm-err">${esc(e.message)}</span>` }
+  $('rpm-drPlan').disabled = false;
+}
+function renderDocks() {
+  if (map) { setData('docks', drGeo.docks()); setData('dockrange', drGeo.range()); setData('dtowers', drGeo.towers()); }
+  $('rpm-drTbl').innerHTML = DR.docks.length ? '<tr><th>Dock</th><th>Covers</th><th>Drone</th><th>Battery</th></tr>' + DR.docks.map(d => `<tr class="rpm-tr" data-lon="${d.lon}" data-lat="${d.lat}"><td>${d.id}</td><td>${d.covers}</td><td>${d.state}</td><td>${Math.round(d.charge)}%<div class="rpm-bar"><i style="width:${d.charge}%;background:${d.charge < 30 ? 'var(--red)' : 'var(--teal)'}"></i></div></td></tr>`).join('') : '';
+}
+function fillTargets() {
+  const opts = []; const inc = M.inc.filter(i => i.cat === 'jam' || i.cat === 'closed').sort((a, b) => (b.delay || 0) - (a.delay || 0) || b.len - a.len).slice(0, 12);
+  inc.forEach(i => { const m = i.geom[Math.floor(i.geom.length / 2)]; opts.push([`${i.cat === 'jam' ? 'Jam ' + i.delay + ' s' : 'Closure'}: ${(i.from || 'unnamed road').slice(0, 36)}`, m, i.cat]); });
+  SNAP.hospitals.filter(h => h.major).forEach(h => opts.push(['Hospital: ' + h.name, [h.lon, h.lat], 'hospital']));
+  DR.targets = opts; $('rpm-drTarget').innerHTML = opts.map((o, i) => `<option value="${i}">${esc(o[0])}</option>`).join('');
+}
+function saveFlights() { store.set('rp.flights.v1', JSON.stringify(DR.flights.slice(0, 100))); renderRegister(); }
+function renderRegister() {
+  $('rpm-drCount').textContent = DR.flights.length + ' recorded';
+  $('rpm-drReg').innerHTML = DR.flights.length ? '<tr><th>Flight</th><th>Time</th><th>Purpose</th><th>Where</th><th>Outcome</th></tr>' + DR.flights.slice(0, 30).map(f => `<tr><td>${f.id}</td><td>${new Date(f.ts).toLocaleTimeString()}</td><td style="white-space:normal">${esc(f.purposeLabel)}</td><td style="white-space:normal">${esc(f.target)}</td><td style="white-space:normal" class="${f.status === 'complete' ? 'rpm-ok' : 'rpm-bad'}">${esc(f.status === 'complete' ? 'Flown' : 'Refused: ' + f.reason)}</td></tr>`).join('') : '<tr><td class="rpm-note">No flights yet.</td></tr>';
+}
+async function recordFlight(rec) {
+  rec.id = 'FL-' + String(DR.flights.length + 1 + (store.get('rp.flightSeq') | 0)).padStart(3, '0'); rec.ts = Date.now(); DR.flights.unshift(rec); saveFlights();
+  try { if (!SRV.token) { await P.ready(); await P.log('DRONE_FLIGHT', { id: rec.id, dock: rec.dock, purpose: rec.purpose, target: rec.target, status: rec.status, reason: rec.reason, blur: rec.blur, retentionH: rec.retentionH, operator: rec.operator }); } } catch {}
+}
+/** Policy checks that run before any drone launches. Returns a reason to refuse, or '' to allow. */
+function policyCheck(purpose, blur, from, to) {
+  if (purpose === 'other') return 'purpose not permitted (only incident response, congestion monitoring or emergency escort)';
+  if (!blur) return 'on-board blurring of faces and plates is required';
+  const z = inNoFly(to) || pathNoFly(from, to); if (z) return 'route enters the no-fly zone around ' + z.name;
+  return '';
+}
+function flyMarker(from, to, label, after) {
+  const el = document.createElement('div'); el.className = 'rpm-drone'; el.title = label; const mk = new maplibregl.Marker({ element: el }).setLngLat(from).addTo(map);
+  setData('dronepath', { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [from, to] } });
+  const secs = Math.max(3, hav(from, to) / DRONE_MS / SIM_X), t0 = performance.now(); DR.flying++;
+  const leg = (a, b, done) => { const s0 = performance.now(); const tick = now => { const t = Math.min(1, (now - s0) / (secs * 1000)); mk.setLngLat(lerp2(a, b, t * t * (3 - 2 * t))); if (t < 1) requestAnimationFrame(tick); else done(); }; requestAnimationFrame(tick); };
+  leg(from, to, () => { after && after(); setTimeout(() => leg(to, from, () => { mk.remove(); DR.flying--; if (!DR.flying) setData('dronepath', emptyGeo); }), 1500); });
+  return secs;
+}
+function chargeDock(d, used) {
+  d.charge = Math.max(0, d.charge - used); d.state = 'flying'; renderDocks();
+  const returnAt = 2 * 1500 + 1200; setTimeout(() => { d.state = 'charging'; renderDocks(); const iv = setInterval(() => { d.charge = Math.min(100, d.charge + 6); if (d.charge >= 100) { d.state = 'ready'; clearInterval(iv); } renderDocks(); }, 400); }, returnAt);
+}
+async function sendDrone(opts = {}) {
+  const purpose = opts.purpose || $('rpm-drPurpose').value, blur = opts.blur ?? $('rpm-drBlur').checked, out = $('rpm-drFly');
+  if (!DR.docks.length) { out.innerHTML = '<span class="rpm-err">Find dock sites first.</span>'; return; }
+  const tgt = opts.target || DR.targets[+$('rpm-drTarget').value]; if (!tgt) return;
+  const to = tgt[1], free = DR.docks.filter(d => d.state === 'ready' && d.charge >= 30);
+  const near = (free.length ? free : DR.docks).slice().sort((a, b) => hav([a.lon, a.lat], to) - hav([b.lon, b.lat], to))[0], from = [near.lon, near.lat];
+  const rec = { dock: near.id, purpose, purposeLabel: PURPOSES[purpose], target: tgt[0], blur, retentionH: DR.policy.retentionH, operator: SRV.user || 'browser', status: 'complete', reason: '' };
+  let why = policyCheck(purpose, blur, from, to);
+  if (!why && !free.length) why = 'no drone is ready (all are flying or charging)';
+  if (!why && hav(from, to) > DR.range) why = `target is ${(hav(from, to) / 1000).toFixed(1)} km from the nearest dock, beyond the ${DR.range / 1000} km range`;
+  if (why) { rec.status = 'refused'; rec.reason = why; await recordFlight(rec); out.innerHTML = `<span class="rpm-bad">Refused: ${esc(why)}.</span>`; return rec; }
+  const dist = hav(from, to), droneEta = 20 + dist / DRONE_MS, stn = SNAP.fire.slice().sort((a, b) => hav([a.lon, a.lat], to) - hav([b.lon, b.lat], to))[0];
+  let ground = null; try { ground = (await getRoute([stn.lon, stn.lat], to)).s } catch {}
+  const used = (2 * dist / DRONE_MS) / FLIGHT_S * 100; chargeDock(near, used);
+  const secs = flyMarker(from, to, 'Drone from ' + near.id, () => {});
+  await recordFlight(rec);
+  out.innerHTML = `<div class="rpm-kpis"><div class="rpm-kpi"><b>${fmtMin(droneEta)}</b><span>Drone on scene (from ${near.id}, ${(dist / 1000).toFixed(1)} km)</span></div><div class="rpm-kpi"><b>${ground == null ? 'n/a' : fmtMin(ground)}</b><span>Ground crew from ${esc(stn.name.slice(0, 28))}</span></div></div>
+    <p>${ground != null ? (droneEta < ground ? `The drone sees it <b>${fmtMin(ground - droneEta)}</b> before a ground crew can arrive.` : 'A ground crew would arrive first on this one.') : ''} Flight ${rec.id} recorded. Blurred on board, deleted after ${rec.retentionH} h. Simulated at ${SIM_X}× speed.</p>`;
+  return rec;
+}
+$('rpm-drN').oninput = () => { $('rpm-drNv').textContent = $('rpm-drN').value };
+$('rpm-drR').oninput = () => { $('rpm-drRv').textContent = $('rpm-drR').value };
+$('rpm-drRet').oninput = () => { DR.policy.retentionH = +$('rpm-drRet').value; $('rpm-drRetv').textContent = DR.policy.retentionH };
+$('rpm-drPlan').onclick = planDocks; $('rpm-drSend').onclick = () => sendDrone().catch(e => { $('rpm-drFly').innerHTML = `<span class="rpm-err">${esc(e.message)}</span>` });
+$('rpm-drTbl').addEventListener('click', e => { const t = e.target.closest('tr.rpm-tr'); if (t) map.flyTo({ center: [+t.dataset.lon, +t.dataset.lat], zoom: 15, pitch: 62, duration: 1200 }) });
+$('rpm-drCsv').onclick = () => { const cols = ['id', 'ts', 'purpose', 'target', 'dock', 'status', 'reason', 'blur', 'retentionH', 'operator']; const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const blob = new Blob([[cols.join(',')].concat(DR.flights.map(f => cols.map(c => q(c === 'ts' ? new Date(f.ts).toISOString() : f[c])).join(','))).join('\n')], { type: 'text/csv' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'drone-flight-register.csv'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove() }, 500); };
+$('rpm-drClear').onclick = () => { if (confirm('Clear the flight register in this browser?')) { store.set('rp.flightSeq', String((store.get('rp.flightSeq') | 0) + DR.flights.length)); DR.flights = []; saveFlights() } };
+renderRegister();
+
 /* ---------- refresh / wiring ---------- */
 async function refreshLive(manual) {
   $('rpm-err').textContent = ''; if (!M.key) { if (manual) $('rpm-err').textContent = 'Add a TomTom key to refresh live data.'; return }
@@ -1589,6 +1767,7 @@ document.querySelectorAll('#v-map [data-l]').forEach(c => c.onchange = () => { M
 $('rpm-tilt').onclick = () => { M.pitch = map.getPitch() > 10 ? 0 : 58; map.easeTo({ pitch: M.pitch, duration: 700 }) };
 $('rpm-reset').onclick = () => map.flyTo({ center: CENTER, zoom: 11.3, pitch: 58, bearing: -18, duration: 1200 });
 $('rpm-style').onclick = () => { M.style = M.style === 'light' ? 'grey' : 'light'; map.setStyle(STYLES[M.style]) };
+window.RPDrone = { DR, planDocks, sendDrone, policyCheck, renderRegister, inNoFly };
 window.RPMap = { activate() { if (!map) initMap(); else requestAnimationFrame(() => map.resize()) }, M, P, UC, state: () => ({ map, mapReady }), selectUC, hospRows, planRoute, startRun, stopRun };
 })();
 
