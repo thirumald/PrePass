@@ -312,7 +312,7 @@ h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.
 
     <!-- MAP -->
     <section class="view" id="v-map" hidden>
-      <div class="vhead"><div><h2 class="vt">Abu Dhabi map</h2><p>Live traffic, incidents, hospitals, civil defence and speed bumps in 3D, with the 37 use cases placed at the sites where they matter.</p></div><span class="badge" id="rpm-badge"><i></i><span id="rpm-badgeText">Loading…</span></span></div>
+      <div class="vhead"><div><h2 class="vt">Abu Dhabi map</h2><p>Live traffic, incidents, hospitals, civil defence and speed bumps in 3D, with 44 use cases (the 37 original ones plus 7 drone cases) placed at the sites where they matter.</p></div><span class="badge" id="rpm-badge"><i></i><span id="rpm-badgeText">Loading…</span></span></div>
       <div class="rpm-grid">
         <div class="rpm-mapwrap"><div id="rpm-map"></div>
           <div class="rpm-legend" id="rpm-legend"></div></div>
@@ -351,8 +351,14 @@ h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.
             <label class="rpm-lbl" for="rpm-drR">Drone range from a dock: <b id="rpm-drRv">2</b> km</label><input type="range" id="rpm-drR" min="1" max="4" step="0.5" value="2" style="width:100%;accent-color:var(--amber)">
             <div class="rpm-row"><button class="btn primary" id="rpm-drPlan" type="button">Find dock sites</button></div>
             <div id="rpm-drOut" class="rpm-note" style="margin-top:8px"></div>
-            <div class="rpm-tbl-wrap"><table class="tbl" id="rpm-drTbl"></table></div></div>
+            <div class="rpm-tbl-wrap"><table class="tbl" id="rpm-drTbl"></table></div>
+            <div id="rpm-drChk" style="margin-top:10px"></div></div>
           <div class="card"><h3>Send a drone <span class="rpm-note" id="rpm-drFlyState"></span></h3>
+            <div class="rpm-lbl">Flying conditions <span id="rpm-wxState"></span></div>
+            <div class="rpm-note">Assumed limits, not a manufacturer's: gusts over 36 km/h, air over 50 °C, a sandstorm or heavy rain ground the drone.</div>
+            <label class="rpm-lbl" for="rpm-wxWind">Wind gusts: <b id="rpm-wxWindv">15</b> km/h</label><input type="range" id="rpm-wxWind" min="0" max="70" step="1" value="15" style="width:100%;accent-color:var(--amber)">
+            <label class="rpm-lbl" for="rpm-wxTemp">Air temperature: <b id="rpm-wxTempv">41</b> °C</label><input type="range" id="rpm-wxTemp" min="10" max="60" step="1" value="41" style="width:100%;accent-color:var(--amber)">
+            <div class="rpm-row" style="align-items:center"><label style="display:flex;gap:6px;font-size:13px"><input type="checkbox" id="rpm-wxDust"> Sandstorm</label><label style="display:flex;gap:6px;font-size:13px"><input type="checkbox" id="rpm-wxRain"> Heavy rain</label><button class="btn" id="rpm-wxLive" type="button">Use live weather</button></div>
             <label class="rpm-lbl" for="rpm-drTarget">Where to</label><select class="sel rpm-in" id="rpm-drTarget"></select>
             <label class="rpm-lbl" for="rpm-drPurpose">Purpose (required, and recorded)</label><select class="sel rpm-in" id="rpm-drPurpose"><option value="incident">Incident response</option><option value="congestion">Congestion monitoring</option><option value="escort">Emergency corridor escort</option><option value="other">Other (not permitted)</option></select>
             <label style="display:flex;gap:8px;margin:8px 0 0;font-size:13px"><input type="checkbox" id="rpm-drBlur" checked> Blur faces and number plates on board</label>
@@ -366,6 +372,9 @@ h2.vt{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:.
               <li><b>No-fly zones:</b> flights into or across airport buffers are refused (shown in red on the map).</li>
               <li><b>Retention:</b> footage is deleted after the period below. This app records flight details only; it stores no video or personal data.</li>
               <li><b>Transparency:</b> the register below lists every flight, with who sent it and why.</li></ul>
+            <div class="rpp-grid"><div><label class="rpm-lbl" for="rpm-drOrg">Operator named on the notice</label><input class="rpm-in" id="rpm-drOrg" placeholder="Abu Dhabi traffic and civil defence"></div>
+              <div><label class="rpm-lbl" for="rpm-drContact">Contact for questions</label><input class="rpm-in" id="rpm-drContact" placeholder="drones@example.ae"></div></div>
+            <div class="rpm-row"><button class="btn" id="rpm-drSigns" type="button">Download notices for every pole</button></div>
             <label class="rpm-lbl" for="rpm-drRet">Retention: <b id="rpm-drRetv">24</b> hours <span class="rpm-note">(maximum 72)</span></label><input type="range" id="rpm-drRet" min="1" max="72" step="1" value="24" style="width:100%;accent-color:var(--amber)">
             <div class="rpm-tbl-wrap" style="margin-top:8px"><table class="tbl" id="rpm-drReg"></table></div>
             <div class="rpm-row"><button class="btn" id="rpm-drCsv" type="button">Export CSV</button><button class="btn" id="rpm-drClear" type="button">Clear register</button></div>
@@ -1252,7 +1261,7 @@ const M = { key: storedKey === null ? DEFAULT_KEY : storedKey, inc: [], live: fa
 let map = null, mapReady = false, ucMarkers = [], vehMarker = null, popup = null, incTimer = 0, flowTimer = 0;
 
 /* ---------- the 37 use cases, placed on the map ---------- */
-const GROUPS = { E: ['Emergency operations', '#f2b632'], C: ['Civilians and vulnerable users', '#38c6b2'], S: ['Security and misuse', '#ff5d52'], N: ['Environment', '#6f8ef0'], H: ['System health', '#b48aff'], O: ['Operations', '#4fd18b'] };
+const GROUPS = { E: ['Emergency operations', '#f2b632'], C: ['Civilians and vulnerable users', '#38c6b2'], S: ['Security and misuse', '#ff5d52'], N: ['Environment', '#6f8ef0'], H: ['System health', '#b48aff'], O: ['Operations', '#4fd18b'], D: ['Drone docks and aerial monitoring', '#7fe3d4'] };
 // [code, title, risk, solution, [lon,lat], where, scenario id in Live]
 const UC = [
  ['E1', 'Single emergency vehicle on an active call', 'Delay and patient jolt', 'Dispatch geofence plus V2X or siren (two of three); lower before the vehicle enters the braking zone', [54.3935, 24.4945], 'Approach to Cleveland Clinic Abu Dhabi', 'emergency'],
@@ -1292,6 +1301,14 @@ const UC = [
  ['O2', 'Evacuation or major incident', 'Calming slows mass movement', 'One command lowers every unit on evacuation routes', [54.384, 24.449], 'Sheikh Zayed Bridge approach', 'evac'],
  ['O3', 'Road works or resurfacing', 'Damage to the unit', 'Maintenance mode with lockout', [54.4, 24.5], 'Real roadworks from TomTom', 'maint'],
  ['O4', 'Insurance claim or complaint', 'No evidence', 'Event log with video clip for every actuation and every flush crossing', [54.371, 24.4745], 'Operations centre records', null],
+ // drone docks on traffic-signal poles; the last field is an action that demonstrates the case on this map
+ ['D1', 'Drone first look at an incident', 'Crews and operators are blind to the scene for minutes', 'The nearest dock launches a drone; its arrival is compared with the ground crew\'s routed time', [54.40, 24.50], 'Worst jam or closure now', null, 'drone-send'],
+ ['D2', 'Drone escort confirms the zone is clear', 'A unit lowers into an obstacle the sensors cannot see', 'The drone flies ahead and gives an independent look at each speed-bump zone before the pass engine lowers it', [54.373, 24.481], 'Civil Defence Al Zaab to Cleveland Clinic corridor', null, 'drone-escort'],
+ ['D3', 'Dock grounded by wind, sand or heat', 'A drone is lost or damaged, or a dock overheats', 'Weather limits keep the drone in its dock, the refusal is logged, and a ground crew is used instead', [54.495, 24.37], 'Mussafah industrial area', null, 'drone-weather'],
+ ['D4', 'Flight for a purpose that is not permitted', 'Surveillance creep: drones used for things nobody agreed to', 'Only incident response, congestion monitoring and emergency escort can launch; every refusal is public', [54.3745, 24.4765], 'Operations centre', null, 'drone-purpose'],
+ ['D5', 'Flight toward an airport or restricted airspace', 'Conflict with aircraft; a legal and safety breach', 'Launch is refused if the route enters a no-fly buffer', [54.605, 24.443], 'Edge of the airport buffer', null, 'drone-nofly'],
+ ['D6', 'Dock loses power', 'The drone cannot recharge or launch from that pole', 'The dock is marked offline, the nearest other dock takes the job, and the power check shows on the site checklist', [54.575, 24.42], 'Khalifa City', null, 'drone-power'],
+ ['D7', 'Public notice on every pole', 'People do not know who is watching, what is collected, or how it is used', 'Each pole carries a notice with purpose, blurring, retention and a contact, backed by the public flight register', [54.388, 24.4955], 'Hospital approach, Al Maryah', null, 'drone-signs'],
 ];
 
 /* ---------- data ---------- */
@@ -1391,9 +1408,10 @@ function ucEvidence(code) {
   if (code === 'N3') return `${M.inc.filter(i => i.cat === 'flood').length} flooding reports from TomTom now.`;
   return '';
 }
+const ACT_LABEL = { 'drone-send': 'Send a drone to the worst jam', 'drone-escort': 'Run a corridor with drone escort', 'drone-weather': 'Try a flight in a storm', 'drone-purpose': 'Try a flight that is not permitted', 'drone-nofly': 'Try a flight into the airport zone', 'drone-power': 'Cut power to the nearest dock', 'drone-signs': 'Download notices for every pole' };
 function popupHTML(u) {
-  const [code, title, risk, fix, at, where, scn] = u, ev = ucEvidence(code);
-  return `<div class="rpm-pop"><b style="color:${GROUPS[code[0]][1]}">${code}</b> · <b>${esc(title)}</b><p><span class="rpm-note">Site (illustrative):</span> ${esc(where)}</p><p><span class="rpm-note">Risk:</span> ${esc(risk)}</p><p><span class="rpm-note">Solution:</span> ${esc(fix)}</p>${ev ? `<p class="rpm-ok">${esc(ev)}</p>` : ''}<p class="rpm-note">${esc(nearInfo(at))}</p>${scn ? `<button class="btn primary rpm-btn" data-run="${scn}" type="button">Run scenario in Live</button>` : '<span class="rpm-note">No scripted scenario for this case in the Live view yet.</span>'}</div>`;
+  const [code, title, risk, fix, at, where, scn, act] = u, ev = ucEvidence(code);
+  return `<div class="rpm-pop"><b style="color:${GROUPS[code[0]][1]}">${code}</b> · <b>${esc(title)}</b><p><span class="rpm-note">Site (illustrative):</span> ${esc(where)}</p><p><span class="rpm-note">Risk:</span> ${esc(risk)}</p><p><span class="rpm-note">Solution:</span> ${esc(fix)}</p>${ev ? `<p class="rpm-ok">${esc(ev)}</p>` : ''}<p class="rpm-note">${esc(nearInfo(at))}</p>${scn ? `<button class="btn primary rpm-btn" data-run="${scn}" type="button">Run scenario in Live</button>` : act ? `<button class="btn primary rpm-btn" data-act="${act}" data-lon="${at[0]}" data-lat="${at[1]}" type="button">${ACT_LABEL[act]}</button>` : '<span class="rpm-note">No scripted scenario for this case in the Live view yet.</span>'}</div>`;
 }
 function buildUC() {
   ucMarkers.forEach(m => m.remove()); ucMarkers = [];
@@ -1402,7 +1420,9 @@ function buildUC() {
     el.addEventListener('click', ev => { ev.stopPropagation(); selectUC(u[0], false) }); ucMarkers.push(mk) });
   placeO3(); applyVis();
 }
-function placeO3() { // O3 sits on the longest real roadworks site
+function placeO3() { // O3 sits on the longest real roadworks site; D1 on the worst jam or closure
+  const d1 = ucMarkers.find(m => m._c === 'D1'), wj = M.inc.filter(i => i.cat === 'jam' || i.cat === 'closed').sort((a, b) => (b.delay || 0) - (a.delay || 0) || b.len - a.len)[0];
+  if (d1 && wj) { const m = wj.geom[Math.floor(wj.geom.length / 2)]; d1.setLngLat(m); d1._u[4] = m; d1._u[5] = (wj.cat === 'jam' ? 'Worst jam now: ' : 'Longest closure now: ') + (wj.from || 'unnamed road').slice(0, 40); }
   const mk = ucMarkers.find(m => m._c === 'O3'); if (!mk) return; const w = M.inc.filter(i => i.cat === 'works').sort((a, b) => b.len - a.len)[0];
   if (w) { const m = w.geom[Math.floor(w.geom.length / 2)]; mk.setLngLat(m); mk._u[4] = m; mk._u[5] = 'Longest roadworks site now (' + (w.from || 'unnamed').slice(0, 40) + ')' }
 }
@@ -1412,7 +1432,7 @@ function selectUC(code, fly = true) {
   if (popup) popup.remove(); popup = new maplibregl.Popup({ offset: 18, closeButton: true, maxWidth: '320px' }).setLngLat(u[4]).setHTML(popupHTML(u)).addTo(map);
 }
 function renderUC() {
-  $('rpm-ucFilter').innerHTML = ['ALL', ...Object.keys(GROUPS)].map(g => `<button class="rpm-chip" data-g="${g}" aria-pressed="${M.ucFilter === g}" type="button">${g === 'ALL' ? 'All 37' : g + ' · ' + GROUPS[g][0].split(' ')[0]}</button>`).join('');
+  $('rpm-ucFilter').innerHTML = ['ALL', ...Object.keys(GROUPS)].map(g => `<button class="rpm-chip" data-g="${g}" aria-pressed="${M.ucFilter === g}" type="button">${g === 'ALL' ? 'All ' + UC.length : g + ' · ' + GROUPS[g][0].split(' ')[0]}</button>`).join('');
   const list = UC.filter(u => M.ucFilter === 'ALL' || u[0][0] === M.ucFilter); $('rpm-ucCount').textContent = list.length + ' shown';
   $('rpm-ucList').innerHTML = list.map(u => `<div class="rpm-uc-row" data-c="${u[0]}"><span class="rpm-ucm" style="--c:${GROUPS[u[0][0]][1]};width:26px;height:26px">${u[0]}</span><span>${esc(u[1])}<small>${esc(u[5])}</small></span></div>`).join('');
 }
@@ -1497,7 +1517,9 @@ async function startRun() {
   const paint = () => setData('rbumps', { type: 'FeatureCollection', features: run.bumps.map(b => ({ type: 'Feature', properties: { s: b.s }, geometry: { type: 'Point', coordinates: b.p } })) });
   const upd = (note) => { $('rpm-routeOut').innerHTML = `<div class="rpm-kpis"><div class="rpm-kpi"><b>${run.lowered}</b><span>Units lowered for ${esc(plate)}</span></div><div class="rpm-kpi"><b>${run.refused}</b><span>Requests refused</span></div><div class="rpm-kpi"><b>${run.lowered * sec} s</b><span>Time saved (${sec} s per bump)</span></div><div class="rpm-kpi"><b>${run.passed}/${run.bumps.length}</b><span>Bumps passed</span></div></div><p class="rpm-note">${esc(note)}</p>` };
   paint(); upd('Driving the route. At each speed bump within 120 m the vehicle sends a signed message and the edge verifies it.');
-  const escort = $('rpm-escort').checked && DR.docks.length > 0; let escortMk = null;
+  const wxr = $('rpm-escort').checked ? wxReason() : '';
+  if (wxr) { await recordFlight({ dock: '-', purpose: 'escort', purposeLabel: PURPOSES.escort, target: `${fromN} → ${toN}`, blur: true, retentionH: DR.policy.retentionH, operator: SRV.user || 'browser', status: 'refused', reason: 'grounded: ' + wxr }); $('rpm-routeOut').innerHTML = `<span class="rpm-warn">Drone escort grounded: ${esc(wxr)}. Running without it.</span>`; }
+  const escort = $('rpm-escort').checked && DR.docks.length > 0 && !wxr; let escortMk = null;
   if (escort) {
     const dock = DR.docks.slice().sort((a, b) => hav([a.lon, a.lat], r.coords[0]) - hav([b.lon, b.lat], r.coords[0]))[0], el = document.createElement('div'); el.className = 'rpm-drone'; escortMk = new maplibregl.Marker({ element: el }).setLngLat(r.coords[0]).addTo(map);
     await recordFlight({ dock: dock.id, purpose: 'escort', purposeLabel: PURPOSES.escort, target: `${fromN} → ${toN}`, blur: true, retentionH: DR.policy.retentionH, operator: SRV.user || 'browser', status: 'complete', reason: '' });
@@ -1661,7 +1683,8 @@ async function planDocks() {
 }
 function renderDocks() {
   if (map) { setData('docks', drGeo.docks()); setData('dockrange', drGeo.range()); setData('dtowers', drGeo.towers()); }
-  $('rpm-drTbl').innerHTML = DR.docks.length ? '<tr><th>Dock</th><th>Covers</th><th>Drone</th><th>Battery</th></tr>' + DR.docks.map(d => `<tr class="rpm-tr" data-lon="${d.lon}" data-lat="${d.lat}"><td>${d.id}</td><td>${d.covers}</td><td>${d.state}</td><td>${Math.round(d.charge)}%<div class="rpm-bar"><i style="width:${d.charge}%;background:${d.charge < 30 ? 'var(--red)' : 'var(--teal)'}"></i></div></td></tr>`).join('') : '';
+  $('rpm-drTbl').innerHTML = DR.docks.length ? '<tr><th>Dock</th><th>Covers</th><th>Ready</th><th>Drone</th><th>Battery</th></tr>' + DR.docks.map(d => { const st = d.offline ? 'offline' : (d.state === 'ready' && typeof wxReason === 'function' && wxReason() ? 'grounded' : d.state), rd = readiness(d);
+    return `<tr class="rpm-tr${d.id === chkDock ? ' sel' : ''}" data-id="${d.id}" data-lon="${d.lon}" data-lat="${d.lat}"><td>${d.id}</td><td>${d.covers}</td><td>${rd}%</td><td class="${st === 'offline' || st === 'grounded' ? 'rpm-bad' : ''}">${st}</td><td>${Math.round(d.charge)}%<div class="rpm-bar"><i style="width:${d.charge}%;background:${d.charge < 30 ? 'var(--red)' : 'var(--teal)'}"></i></div></td></tr>`; }).join('') : '';
 }
 function fillTargets() {
   const opts = []; const inc = M.inc.filter(i => i.cat === 'jam' || i.cat === 'closed').sort((a, b) => (b.delay || 0) - (a.delay || 0) || b.len - a.len).slice(0, 12);
@@ -1701,11 +1724,12 @@ async function sendDrone(opts = {}) {
   const purpose = opts.purpose || $('rpm-drPurpose').value, blur = opts.blur ?? $('rpm-drBlur').checked, out = $('rpm-drFly');
   if (!DR.docks.length) { out.innerHTML = '<span class="rpm-err">Find dock sites first.</span>'; return; }
   const tgt = opts.target || DR.targets[+$('rpm-drTarget').value]; if (!tgt) return;
-  const to = tgt[1], free = DR.docks.filter(d => d.state === 'ready' && d.charge >= 30);
-  const near = (free.length ? free : DR.docks).slice().sort((a, b) => hav([a.lon, a.lat], to) - hav([b.lon, b.lat], to))[0], from = [near.lon, near.lat];
+  const to = tgt[1], free = DR.docks.filter(d => d.state === 'ready' && !d.offline && d.charge >= 30), usable = DR.docks.filter(d => !d.offline);
+  const near = (free.length ? free : usable.length ? usable : DR.docks).slice().sort((a, b) => hav([a.lon, a.lat], to) - hav([b.lon, b.lat], to))[0], from = [near.lon, near.lat];
   const rec = { dock: near.id, purpose, purposeLabel: PURPOSES[purpose], target: tgt[0], blur, retentionH: DR.policy.retentionH, operator: SRV.user || 'browser', status: 'complete', reason: '' };
   let why = policyCheck(purpose, blur, from, to);
-  if (!why && !free.length) why = 'no drone is ready (all are flying or charging)';
+  if (!why) { const w = wxReason(); if (w) why = 'grounded: ' + w; }
+  if (!why && !free.length) why = usable.length ? 'no drone is ready (all are flying or charging)' : 'every dock is offline';
   if (!why && hav(from, to) > DR.range) why = `target is ${(hav(from, to) / 1000).toFixed(1)} km from the nearest dock, beyond the ${DR.range / 1000} km range`;
   if (why) { rec.status = 'refused'; rec.reason = why; await recordFlight(rec); out.innerHTML = `<span class="rpm-bad">Refused: ${esc(why)}.</span>`; return rec; }
   const dist = hav(from, to), droneEta = 20 + dist / DRONE_MS, stn = SNAP.fire.slice().sort((a, b) => hav([a.lon, a.lat], to) - hav([b.lon, b.lat], to))[0];
@@ -1721,11 +1745,85 @@ $('rpm-drN').oninput = () => { $('rpm-drNv').textContent = $('rpm-drN').value };
 $('rpm-drR').oninput = () => { $('rpm-drRv').textContent = $('rpm-drR').value };
 $('rpm-drRet').oninput = () => { DR.policy.retentionH = +$('rpm-drRet').value; $('rpm-drRetv').textContent = DR.policy.retentionH };
 $('rpm-drPlan').onclick = planDocks; $('rpm-drSend').onclick = () => sendDrone().catch(e => { $('rpm-drFly').innerHTML = `<span class="rpm-err">${esc(e.message)}</span>` });
-$('rpm-drTbl').addEventListener('click', e => { const t = e.target.closest('tr.rpm-tr'); if (t) map.flyTo({ center: [+t.dataset.lon, +t.dataset.lat], zoom: 15, pitch: 62, duration: 1200 }) });
+$('rpm-drTbl').addEventListener('click', e => { const t = e.target.closest('tr.rpm-tr'); if (t) selectDock(t.dataset.id, true) });
 $('rpm-drCsv').onclick = () => { const cols = ['id', 'ts', 'purpose', 'target', 'dock', 'status', 'reason', 'blur', 'retentionH', 'operator']; const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const blob = new Blob([[cols.join(',')].concat(DR.flights.map(f => cols.map(c => q(c === 'ts' ? new Date(f.ts).toISOString() : f[c])).join(','))).join('\n')], { type: 'text/csv' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'drone-flight-register.csv'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove() }, 500); };
 $('rpm-drClear').onclick = () => { if (confirm('Clear the flight register in this browser?')) { store.set('rp.flightSeq', String((store.get('rp.flightSeq') | 0) + DR.flights.length)); DR.flights = []; saveFlights() } };
 renderRegister();
+
+/* ---------- site checklist, weather limits, notices, and the drone use-case actions ---------- */
+const CHK_ITEMS = [['power', 'Power feed available at the pole', 'm'], ['pole', 'Pole and bracket rated for the dock weight and wind', 'm'], ['sky', 'Clear sky for navigation signals and radio', 'm'], ['nofly', 'Outside airport no-fly buffers', 'a'],
+  ['value', 'Covers a hospital or civil defence station', 'a'], ['estop', 'Emergency stop fitted and tested', 'm'], ['sign', 'Privacy notice posted on the pole', 'm'], ['access', 'Service access agreed with the pole owner', 'm']];
+let CHK = {}; try { CHK = JSON.parse(store.get('rp.dockchk.v1') || '{}') || {}; } catch {}
+const dockKey = d => d.lon.toFixed(5) + ',' + d.lat.toFixed(5);
+const chkState = (d, k) => k === 'nofly' ? !inNoFly([d.lon, d.lat]) : k === 'value' ? d.covers > 0 : !!(CHK[dockKey(d)] || {})[k];
+const readiness = d => Math.round(CHK_ITEMS.filter(i => chkState(d, i[0])).length / CHK_ITEMS.length * 100);
+let chkDock = null;
+function renderChecklist() {
+  const box = $('rpm-drChk'), d = DR.docks.find(x => x.id === chkDock);
+  if (!d) { box.innerHTML = DR.docks.length ? '<div class="rpm-note">Click a dock in the table or on the map to open its site checklist.</div>' : ''; return; }
+  const sc = readiness(d);
+  box.innerHTML = `<h3 style="margin:0 0 6px">Site checklist: ${d.id} <span class="rpm-note">${sc}% ready${sc === 100 ? ' · ready to pilot' : sc >= 75 ? ' · nearly there' : ''}</span></h3>` + CHK_ITEMS.map(([k, label, kind]) =>
+    `<label style="display:flex;gap:8px;margin:4px 0;font-size:13px"><input type="checkbox" data-chk="${k}" ${chkState(d, k) ? 'checked' : ''} ${kind === 'a' ? 'disabled' : ''}> <span>${esc(label)}${kind === 'a' ? ' <span class="rpm-note">(checked by the app)</span>' : ''}</span></label>`).join('') +
+    `<div class="rpm-note" style="margin-top:6px">Tick each item once it is confirmed on site. A dock needs power, so check that first. ${d.offline ? '<b class="rpm-bad">This dock is offline.</b>' : ''}</div>
+     <div class="rpm-row"><button class="btn" data-act="drone-toggle" data-id="${d.id}" type="button">${d.offline ? 'Restore power' : 'Simulate power loss'}</button></div>`;
+}
+function selectDock(id, fly) { chkDock = id; renderChecklist(); renderDocks(); const d = DR.docks.find(x => x.id === id); if (d && fly && map) map.flyTo({ center: [d.lon, d.lat], zoom: 15, pitch: 62, duration: 1200 }); }
+$('rpm-drChk').addEventListener('change', e => { const k = e.target.dataset.chk, d = DR.docks.find(x => x.id === chkDock); if (!k || !d) return; const key = dockKey(d); CHK[key] = { ...(CHK[key] || {}), [k]: e.target.checked }; store.set('rp.dockchk.v1', JSON.stringify(CHK)); renderChecklist(); renderDocks(); });
+
+/* flying conditions */
+const WX = { wind: 15, temp: 41, dust: false, rain: false }, WX_LIMITS = { wind: 36, temp: 50 };
+const wxReason = () => WX.wind > WX_LIMITS.wind ? `wind gusts of ${WX.wind} km/h exceed the ${WX_LIMITS.wind} km/h limit` : WX.temp > WX_LIMITS.temp ? `air temperature of ${WX.temp} °C exceeds the ${WX_LIMITS.temp} °C limit` : WX.dust ? 'sandstorm, visibility too low to fly' : WX.rain ? 'heavy rain' : '';
+function wxSync() {
+  $('rpm-wxWind').value = WX.wind; $('rpm-wxTemp').value = WX.temp; $('rpm-wxDust').checked = WX.dust; $('rpm-wxRain').checked = WX.rain; $('rpm-wxWindv').textContent = WX.wind; $('rpm-wxTempv').textContent = WX.temp;
+  const r = wxReason(); $('rpm-wxState').innerHTML = r ? `<b class="rpm-bad">grounded: ${esc(r)}</b>` : '<b class="rpm-ok">OK to fly</b>'; renderDocks();
+}
+$('rpm-wxWind').oninput = () => { WX.wind = +$('rpm-wxWind').value; wxSync() }; $('rpm-wxTemp').oninput = () => { WX.temp = +$('rpm-wxTemp').value; wxSync() };
+$('rpm-wxDust').onchange = () => { WX.dust = $('rpm-wxDust').checked; wxSync() }; $('rpm-wxRain').onchange = () => { WX.rain = $('rpm-wxRain').checked; wxSync() };
+$('rpm-wxLive').onclick = async () => {
+  try { const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=24.47&longitude=54.37&current=temperature_2m,wind_gusts_10m,precipitation'); if (!r.ok) throw new Error('HTTP ' + r.status);
+    const c = (await r.json()).current; WX.wind = Math.round(c.wind_gusts_10m); WX.temp = Math.round(c.temperature_2m); WX.rain = c.precipitation >= 2; wxSync(); $('rpm-drFly').innerHTML = `<span class="rpm-note">Live weather from Open-Meteo: gusts ${WX.wind} km/h, ${WX.temp} °C${WX.rain ? ', heavy rain' : ''}. Sandstorm is not in the feed, so tick it by hand.</span>`;
+  } catch (e) { $('rpm-drFly').innerHTML = `<span class="rpm-err">Live weather unavailable (${esc(e.message)}). Set the conditions by hand.</span>` }
+};
+
+/* the public notice that goes on each pole */
+const noticeText = d => `Drone dock ${d.id}. Drones launch from this pole for incident response, congestion monitoring and emergency escort only. Faces and number plates are blurred on board. Footage is deleted after ${DR.policy.retentionH} hours. Every flight is listed in the public flight register.`;
+const noticeContact = () => { const o = $('rpm-drOrg').value.trim(), c = $('rpm-drContact').value.trim(); return (o || c) ? `Operated by ${o || 'the operator'}. Questions: ${c || 'see the operator'}.` : 'Add the operator and a contact in the privacy card before printing.'; };
+function downloadSigns() {
+  if (!DR.docks.length) { $('rpm-drFly').innerHTML = '<span class="rpm-err">Find dock sites first.</span>'; return; }
+  const html = `<!doctype html><meta charset="utf-8"><title>Drone dock notices</title><style>body{font:16px/1.4 system-ui,sans-serif;margin:0}.sign{page-break-after:always;padding:40px;border:6px solid #111;margin:20px;min-height:80vh}h1{font-size:44px;margin:0 0 12px}p{font-size:22px}small{color:#555}</style>` +
+    DR.docks.map(d => `<div class="sign"><h1>Drone dock ${esc(d.id)}</h1><p>${esc(noticeText(d))}</p><p>${esc(noticeContact())}</p><small>Location ${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}</small></div>`).join('');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' })); a.download = 'drone-dock-notices.html'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove() }, 500);
+  return DR.docks.length;
+}
+$('rpm-drSigns').onclick = downloadSigns;
+for (const [id, key] of [['rpm-drOrg', 'rp.drOrg'], ['rpm-drContact', 'rp.drContact']]) { $(id).value = store.get(key) || ''; $(id).oninput = () => store.set(key, $(id).value); }
+
+/* what each drone use case does when you press its button on the map */
+async function ensureDocks() { if (!DR.docks.length) await planDocks(); return DR.docks.length > 0; }
+async function runAct(act, at, id) {
+  if (act === 'drone-toggle') { const d = DR.docks.find(x => x.id === id); if (d) { d.offline = !d.offline; renderDocks(); renderChecklist(); } return; }
+  if (act === 'drone-restore') { DR.docks.forEach(d => d.offline = false); renderDocks(); renderChecklist(); return; }
+  if (!(await ensureDocks())) return;
+  const show = () => $('rpm-drFly').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  fillTargets();
+  if (act === 'drone-send') { $('rpm-drTarget').selectedIndex = 0; await sendDrone({ purpose: 'incident', blur: true }); show(); }
+  else if (act === 'drone-weather') { WX.wind = 48; wxSync(); $('rpm-drTarget').selectedIndex = 0; await sendDrone({ purpose: 'incident', blur: true }); $('rpm-drFly').innerHTML += '<p class="rpm-note">Wind is now set to 48 km/h. Move the wind slider back down to fly again.</p>'; show(); }
+  else if (act === 'drone-purpose') { $('rpm-drTarget').selectedIndex = 0; await sendDrone({ purpose: 'other', blur: true }); show(); }
+  else if (act === 'drone-nofly') { await sendDrone({ purpose: 'incident', blur: true, target: ['Road beside the airport', [54.6511, 24.4330], 'x'] }); show(); }
+  else if (act === 'drone-power') {
+    const d = DR.docks.slice().sort((a, b) => hav([a.lon, a.lat], at) - hav([b.lon, b.lat], at))[0]; d.offline = true; selectDock(d.id, false);
+    const rec = await sendDrone({ purpose: 'incident', blur: true, target: ['Near dock ' + d.id, [d.lon + 0.002, d.lat + 0.001], 'x'] });
+    $('rpm-drFly').innerHTML += `<p>Dock ${d.id} is offline${rec && rec.status === 'complete' ? `, so dock <b>${rec.dock}</b> took the job.` : '. No other dock is within range, so this area has no aerial cover until power is restored.'} <button class="btn" data-act="drone-restore" type="button">Restore power</button></p>`; show();
+  }
+  else if (act === 'drone-escort') {
+    const f = $('rpm-from'), t = $('rpm-to'); f.selectedIndex = [...f.options].findIndex(o => /Al Zaab/.test(o.text)); t.selectedIndex = 0; $('rpm-escort').checked = true;
+    await planRoute(); if (!$('rpm-run').disabled) await startRun();
+  }
+  else if (act === 'drone-signs') { const n = downloadSigns(); if (n) $('rpm-drFly').innerHTML = `<span class="rpm-note">Downloaded notices for ${n} poles. ${esc(noticeContact())}</span>`; show(); }
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b) runAct(b.dataset.act, [+b.dataset.lon, +b.dataset.lat], b.dataset.id).catch(err => { $('rpm-drFly').innerHTML = `<span class="rpm-err">${esc(err.message)}</span>` }) });
+wxSync();
 
 /* ---------- refresh / wiring ---------- */
 async function refreshLive(manual) {
@@ -1747,8 +1845,11 @@ function initMap() {
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right'); map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
   map.on('style.load', addAll);
   map.once('load', () => { mapReady = true; buildUC(); if (M.key) startLive(); loadBumps().then(() => { refreshData(); renderHosp(); renderNet() }).catch(e => { M.bumpsErr = e.message; renderHosp() }) });
-  map.on('click', e => { const f = map.queryRenderedFeatures(e.point, { layers: ['place-dot', 'inc-jam', 'inc-closed', 'inc-works', 'jam-tower'].filter(id => map.getLayer(id)) })[0]; if (!f) return; let h = '';
-    if (f.properties.kind) h = `<b>${esc(f.properties.name)}</b><br>${f.properties.kind === 'hospital' ? 'Hospital' : 'Civil defence / fire station'}`;
+  map.on('click', e => { const f = map.queryRenderedFeatures(e.point, { layers: ['dock-dot', 'place-dot', 'inc-jam', 'inc-closed', 'inc-works', 'jam-tower'].filter(id => map.getLayer(id)) })[0]; if (!f) return; let h = '';
+    if (f.properties.id && /^D\d+$/.test(f.properties.id) && DR.docks.length) { const d = DR.docks.find(x => x.id === f.properties.id); if (d) { selectDock(d.id, false);
+      h = `<div class="rpm-pop"><b style="color:#7fe3d4">Drone dock ${d.id}</b><p>Covers ${d.covers} hospitals, stations, jams or closures within ${DR.range / 1000} km. Site ${readiness(d)}% ready${d.offline ? ' · <b class="rpm-bad">offline</b>' : ''}.</p><p class="rpm-note"><b>Notice on this pole:</b> ${esc(noticeText(d))}</p><p class="rpm-note">${esc(noticeContact())}</p></div>`; } }
+    else
+    if (h) {} else if (f.properties.kind) h = `<b>${esc(f.properties.name)}</b><br>${f.properties.kind === 'hospital' ? 'Hospital' : 'Civil defence / fire station'}`;
     else { const i = M.inc[f.properties.n]; if (i) h = `<b>${esc({ jam: 'Traffic jam', closed: 'Road closed', works: 'Roadworks', accident: 'Accident', broken: 'Broken-down vehicle', flood: 'Flooding', other: 'Incident' }[i.cat])}</b>${i.mag !== 'closed' && i.mag !== 'unknown' ? ' (' + esc(i.mag) + ')' : ''}<br><span dir="auto">${esc(i.from)} → ${esc(i.to)}</span><br>${i.delay ? 'Delay ' + i.delay + ' s · ' : ''}${i.len} m${i.road ? ' · road ' + esc(i.road) : ''}<br>${esc(i.desc)}` }
     if (h) { if (popup) popup.remove(); popup = new maplibregl.Popup({ closeButton: false }).setLngLat(e.lngLat).setHTML(h).addTo(map) } });
 }
@@ -1767,7 +1868,7 @@ document.querySelectorAll('#v-map [data-l]').forEach(c => c.onchange = () => { M
 $('rpm-tilt').onclick = () => { M.pitch = map.getPitch() > 10 ? 0 : 58; map.easeTo({ pitch: M.pitch, duration: 700 }) };
 $('rpm-reset').onclick = () => map.flyTo({ center: CENTER, zoom: 11.3, pitch: 58, bearing: -18, duration: 1200 });
 $('rpm-style').onclick = () => { M.style = M.style === 'light' ? 'grey' : 'light'; map.setStyle(STYLES[M.style]) };
-window.RPDrone = { DR, planDocks, sendDrone, policyCheck, renderRegister, inNoFly };
+window.RPDrone = { DR, planDocks, sendDrone, policyCheck, renderRegister, inNoFly, WX, wxSync, readiness, runAct, downloadSigns };
 window.RPMap = { activate() { if (!map) initMap(); else requestAnimationFrame(() => map.resize()) }, M, P, UC, state: () => ({ map, mapReady }), selectUC, hospRows, planRoute, startRun, stopRun };
 })();
 
