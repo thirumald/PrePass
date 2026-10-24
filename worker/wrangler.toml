@@ -1,4 +1,4 @@
-name = "rapidpass-api"
+name = "prepass-api"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
 
